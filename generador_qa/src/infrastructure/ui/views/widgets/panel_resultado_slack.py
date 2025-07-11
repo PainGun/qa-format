@@ -18,7 +18,8 @@ class PanelResultadoSlack(tk.Frame):
         self.controller = controller
         self.slack_service = None
         self.tarea_actual = None
-        
+        self.canal_seleccionado = None  # <-- Añadido para evitar errores
+        self.canal_seleccionado_tipo = None  # <-- Añadido para evitar errores
         self.setup_ui()
     
     def setup_ui(self):
@@ -117,80 +118,87 @@ class PanelResultadoSlack(tk.Frame):
         self.obtener_canales()
     
     def obtener_canales(self):
-        """Obtiene la lista de canales disponibles"""
+        """Obtiene la lista de canales y usuarios disponibles"""
         if not self.slack_service:
             return
-        
         try:
-            canales = self.slack_service.obtener_canales_disponibles()
-            self.canales_disponibles = canales
+            canales = self.slack_service.obtener_canales_disponibles()  # canales
+            # Obtener usuarios
+            usuarios = []
+            if hasattr(self.slack_service, 'obtener_usuarios_disponibles'):
+                usuarios = self.slack_service.obtener_usuarios_disponibles()
+            self.destinos_disponibles = []
+            # Agregar canales
+            for canal in canales:
+                nombre = canal.get('name', 'Sin nombre')
+                es_privado = canal.get('is_private', False)
+                self.destinos_disponibles.append({
+                    'tipo': 'canal',
+                    'id': canal.get('id'),
+                    'name': nombre,
+                    'emoji': '🔒' if es_privado else '🌐',
+                    'is_private': es_privado
+                })
+            # Agregar usuarios
+            for usuario in usuarios:
+                nombre = usuario.get('real_name', usuario.get('name', 'Sin nombre'))
+                self.destinos_disponibles.append({
+                    'tipo': 'usuario',
+                    'id': usuario.get('id'),
+                    'name': nombre,
+                    'emoji': '👤',
+                    'is_private': False
+                })
         except Exception as e:
-            messagebox.showerror("Error", f"Error al obtener canales: {str(e)}")
-    
+            messagebox.showerror("Error", f"Error al obtener canales/usuarios: {str(e)}")
+
     def seleccionar_canal(self):
-        """Muestra un diálogo para seleccionar canal"""
+        """Muestra un diálogo para seleccionar canal o usuario"""
         if not self.slack_service:
             messagebox.showwarning("Advertencia", "Primero debes configurar Slack")
             return
-        
-        if not hasattr(self, 'canales_disponibles') or not self.canales_disponibles:
+        if not hasattr(self, 'destinos_disponibles') or not self.destinos_disponibles:
             self.obtener_canales()
-            if not hasattr(self, 'canales_disponibles') or not self.canales_disponibles:
-                messagebox.showwarning("Advertencia", "No se pudieron obtener los canales")
+            if not hasattr(self, 'destinos_disponibles') or not self.destinos_disponibles:
+                messagebox.showwarning("Advertencia", "No se pudieron obtener los canales/usuarios")
                 return
-        
-        # Crear ventana de selección
         dialog = tk.Toplevel(self)
-        dialog.title("Seleccionar Canal de Slack")
-        dialog.geometry("400x300")
+        dialog.title("Seleccionar Destino de Slack")
+        dialog.geometry("400x400")
         dialog.transient(self)
         dialog.grab_set()
-        
-        # Centrar ventana
         dialog.geometry("+%d+%d" % (self.winfo_rootx() + 50, self.winfo_rooty() + 50))
-        
-        # Frame principal
         main_frame = tk.Frame(dialog)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        tk.Label(main_frame, text="Selecciona un canal:").pack(anchor="w", pady=(0, 5))
-        
-        # Lista de canales
+        tk.Label(main_frame, text="Selecciona un canal o usuario:").pack(anchor="w", pady=(0, 5))
         listbox_frame = tk.Frame(main_frame)
         listbox_frame.pack(fill=tk.BOTH, expand=True)
-        
         scrollbar = tk.Scrollbar(listbox_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
         listbox = tk.Listbox(listbox_frame, yscrollcommand=scrollbar.set)
         listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=listbox.yview)
-        
         # Llenar lista
-        for canal in self.canales_disponibles:
-            nombre = canal.get('name', 'Sin nombre')
-            es_privado = "🔒" if canal.get('is_private', False) else "🌐"
-            listbox.insert(tk.END, f"{es_privado} #{nombre}")
-        
-        # Botones
+        for destino in self.destinos_disponibles:
+            if destino['tipo'] == 'canal':
+                listbox.insert(tk.END, f"{destino['emoji']} #{destino['name']}")
+            else:
+                listbox.insert(tk.END, f"{destino['emoji']} {destino['name']}")
         button_frame = tk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
-        
         def seleccionar():
             seleccion = listbox.curselection()
             if seleccion:
-                canal_text = listbox.get(seleccion[0])
-                nombre = canal_text.split('#')[1] if '#' in canal_text else canal_text
-                self.canal_seleccionado = nombre
-                self.lbl_canal.config(text=f"#{nombre}")
+                destino = self.destinos_disponibles[seleccion[0]]
+                self.canal_seleccionado = destino['id']
+                self.canal_seleccionado_tipo = destino['tipo']
+                self.lbl_canal.config(text=(f"#{destino['name']}" if destino['tipo']=='canal' else destino['name']))
                 dialog.destroy()
-                messagebox.showinfo("Canal Seleccionado", f"Canal seleccionado: #{nombre}")
+                messagebox.showinfo("Destino Seleccionado", f"Destino seleccionado: {destino['emoji']} {destino['name']}")
             else:
-                messagebox.showwarning("Selección", "Por favor selecciona un canal")
-        
+                messagebox.showwarning("Selección", "Por favor selecciona un canal o usuario")
         def cancelar():
             dialog.destroy()
-        
         tk.Button(button_frame, text="✅ Seleccionar", command=seleccionar).pack(side=tk.LEFT, padx=(0, 10))
         tk.Button(button_frame, text="❌ Cancelar", command=cancelar).pack(side=tk.LEFT)
     
@@ -200,97 +208,84 @@ class PanelResultadoSlack(tk.Frame):
             messagebox.showwarning("Configuración", "Primero debes configurar Slack en la pestaña 'Slack'")
             self.notebook.select(1)  # Cambiar a pestaña de Slack
             return
-
-        if not hasattr(self, 'canal_seleccionado'):
-            messagebox.showinfo("Canal", "Selecciona un canal de destino")
+        if not self.canal_seleccionado:
+            messagebox.showinfo("Destino", "Selecciona un canal o usuario de destino")
             self.notebook.select(2)  # Cambiar a pestaña de envío
             return
-
         if not self.tarea_actual:
             messagebox.showwarning("Datos", "No hay datos para enviar. Genera el reporte primero.")
             return
-
-        # Obtener el mensaje generado
         mensaje_default = self.resultado_text.get("1.0", tk.END).strip()
-
-        # Crear ventana de edición
         dialog = tk.Toplevel(self)
         dialog.title("Editar y Enviar a Slack")
         dialog.geometry("600x400")
         dialog.transient(self)
         dialog.grab_set()
         dialog.geometry("+%d+%d" % (self.winfo_rootx() + 50, self.winfo_rooty() + 50))
-
-        tk.Label(dialog, text=f"Canal: #{self.canal_seleccionado}", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 0))
+        destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
+        tk.Label(dialog, text=f"Destino: {destino_str}", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 0))
         tk.Label(dialog, text="Edita el mensaje antes de enviarlo:").pack(anchor="w", padx=10, pady=(5, 0))
-
         text_frame = tk.Frame(dialog)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         text_widget = tk.Text(text_frame, height=15, wrap=tk.WORD)
         text_widget.pack(fill=tk.BOTH, expand=True)
         text_widget.insert(tk.END, mensaje_default)
-
         button_frame = tk.Frame(dialog)
         button_frame.pack(fill=tk.X, pady=(0, 10))
-
         def enviar():
             mensaje_editado = text_widget.get("1.0", tk.END).strip()
             if not mensaje_editado:
                 messagebox.showwarning("Mensaje vacío", "El mensaje no puede estar vacío.")
                 return
+            if not self.canal_seleccionado:
+                messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
+                return
             try:
                 resultado = self.slack_service.enviar_notificacion(mensaje_editado, self.canal_seleccionado)
                 if resultado:
-                    messagebox.showinfo("Éxito", f"✅ Mensaje enviado exitosamente al canal #{self.canal_seleccionado}")
+                    destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
+                    messagebox.showinfo("Éxito", f"✅ Mensaje enviado exitosamente a {destino_str}")
                     dialog.destroy()
                 else:
                     messagebox.showerror("Error", "❌ No se pudo enviar el mensaje")
             except Exception as e:
                 messagebox.showerror("Error", f"❌ Error al enviar mensaje: {str(e)}")
-
         def cancelar():
             dialog.destroy()
-
         tk.Button(button_frame, text="📤 Enviar", command=enviar).pack(side=tk.LEFT, padx=(10, 10))
         tk.Button(button_frame, text="❌ Cancelar", command=cancelar).pack(side=tk.LEFT)
     
     def enviar_ahora(self):
         """Envía el reporte actual a Slack"""
-        if not self.slack_service or not hasattr(self, 'canal_seleccionado'):
-            messagebox.showwarning("Configuración", "Configura Slack y selecciona un canal")
+        if not self.slack_service or not self.canal_seleccionado:
+            messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
             return
-        
         if not self.tarea_actual:
             messagebox.showwarning("Datos", "No hay datos para enviar. Genera el reporte primero.")
             return
-        
         try:
-            # Enviar reporte
             resultado = self.slack_service.enviar_reporte_qa(self.tarea_actual, self.canal_seleccionado)
-            
             if resultado:
-                messagebox.showinfo("Éxito", f"✅ Reporte enviado exitosamente al canal #{self.canal_seleccionado}")
+                destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
+                messagebox.showinfo("Éxito", f"✅ Reporte enviado exitosamente a {destino_str}")
             else:
                 messagebox.showerror("Error", "❌ No se pudo enviar el reporte")
-                
         except Exception as e:
             messagebox.showerror("Error", f"❌ Error al enviar reporte: {str(e)}")
-    
+
     def enviar_mensaje_prueba(self):
         """Envía un mensaje de prueba"""
-        if not self.slack_service or not hasattr(self, 'canal_seleccionado'):
-            messagebox.showwarning("Configuración", "Configura Slack y selecciona un canal")
+        if not self.slack_service or not self.canal_seleccionado:
+            messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
             return
-        
         try:
             mensaje = "🧪 Mensaje de prueba desde Generador QA - ¡La integración funciona perfectamente!"
             resultado = self.slack_service.enviar_notificacion(mensaje, self.canal_seleccionado)
-            
             if resultado:
-                messagebox.showinfo("Éxito", f"✅ Mensaje de prueba enviado al canal #{self.canal_seleccionado}")
+                destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
+                messagebox.showinfo("Éxito", f"✅ Mensaje de prueba enviado a {destino_str}")
             else:
                 messagebox.showerror("Error", "❌ No se pudo enviar el mensaje de prueba")
-                
         except Exception as e:
             messagebox.showerror("Error", f"❌ Error al enviar mensaje de prueba: {str(e)}")
     

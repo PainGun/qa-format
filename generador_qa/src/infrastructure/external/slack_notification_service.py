@@ -73,6 +73,15 @@ class SlackNotificationService(NotificacionService):
         except Exception as e:
             raise DomainException(f"Error al obtener canales: {str(e)}")
     
+    def obtener_usuarios_disponibles(self) -> list:
+        """
+        Obtiene la lista de usuarios disponibles (no bots, no eliminados)
+        """
+        try:
+            return self.slack_client.obtener_usuarios()
+        except Exception as e:
+            raise DomainException(f"Error al obtener usuarios: {str(e)}")
+    
     def _formatear_mensaje_slack(self, tarea: TareaQA) -> str:
         """Formatea el mensaje para Slack con emojis y estructura"""
         ambientes_text = "\n".join(f"• {str(ambiente)}" for ambiente in tarea.ambientes_prs)

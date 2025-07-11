@@ -208,3 +208,30 @@ class SlackClient:
         })
         
         return bloques 
+
+    def obtener_usuarios(self) -> list:
+        """
+        Obtiene la lista de usuarios disponibles (no bots, no eliminados)
+        """
+        try:
+            response = requests.get(
+                f"{self.base_url}/users.list",
+                headers=self.headers,
+                timeout=30
+            )
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("ok"):
+                    # Filtra solo usuarios reales (no bots ni eliminados)
+                    return [
+                        user for user in result.get("members", [])
+                        if not user.get("is_bot") and not user.get("deleted")
+                    ]
+                else:
+                    raise DomainException(f"Error de Slack: {result.get('error', 'Unknown error')}")
+            else:
+                raise DomainException(f"Error HTTP {response.status_code}: {response.text}")
+        except requests.exceptions.RequestException as e:
+            raise DomainException(f"Error de conexión: {str(e)}")
+        except Exception as e:
+            raise DomainException(f"Error al obtener usuarios: {str(e)}") 
