@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 from controllers import TareaQAController
-from views import SeccionAmbientesPRs, SeccionComentarios, SeccionQA, PanelResultado
+from views import SeccionAmbientesPRs, SeccionComentarios, SeccionQA
+from generador_qa.src.infrastructure.ui.views.widgets.panel_resultado_slack import PanelResultadoSlack
 
 class GeneradorQAApp:
     """Aplicación principal del Generador de QA"""
@@ -36,7 +37,7 @@ class GeneradorQAApp:
         self.setup_secciones_qa()
         
         # Panel de resultado
-        self.panel_resultado = PanelResultado(self.root, self.controller)
+        self.panel_resultado = PanelResultadoSlack(self.root, self.controller)
         self.panel_resultado.grid(row=5, column=0, columnspan=2, sticky="ew", padx=10, pady=5)
     
     def setup_info_basica(self):

@@ -7,6 +7,11 @@ from tkinter import ttk, messagebox
 from typing import Callable, Optional
 from ....external.slack_notification_service import SlackNotificationService
 from ....external.slack_client import SlackClient
+import importlib
+try:
+    settings = importlib.import_module('config.settings')
+except Exception:
+    settings = None
 
 
 class SlackConfigWidget(tk.LabelFrame):
@@ -18,6 +23,12 @@ class SlackConfigWidget(tk.LabelFrame):
         self.slack_service = None
         
         self.setup_ui()
+        # Cargar token automáticamente si existe en settings
+        if settings and hasattr(settings, 'SLACK_BOT_TOKEN'):
+            token = getattr(settings, 'SLACK_BOT_TOKEN')
+            if token:
+                self.entry_token.insert(0, token)
+                self.probar_conexion()
     
     def setup_ui(self):
         """Configura la interfaz de usuario"""

@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox
 from typing import Optional, Callable
 from ....external.slack_notification_service import SlackNotificationService
 from ....external.slack_client import SlackClient
-from ...widgets.slack_config_widget import SlackConfigWidget
+from generador_qa.src.infrastructure.ui.views.widgets.slack_config_widget import SlackConfigWidget
 
 
 class PanelResultadoSlack(tk.Frame):
@@ -195,26 +195,64 @@ class PanelResultadoSlack(tk.Frame):
         tk.Button(button_frame, text="❌ Cancelar", command=cancelar).pack(side=tk.LEFT)
     
     def mostrar_dialogo_envio(self):
-        """Muestra un diálogo para confirmar el envío"""
+        """Muestra un diálogo para editar y confirmar el envío"""
         if not self.slack_service:
             messagebox.showwarning("Configuración", "Primero debes configurar Slack en la pestaña 'Slack'")
             self.notebook.select(1)  # Cambiar a pestaña de Slack
             return
-        
+
         if not hasattr(self, 'canal_seleccionado'):
             messagebox.showinfo("Canal", "Selecciona un canal de destino")
             self.notebook.select(2)  # Cambiar a pestaña de envío
             return
-        
-        # Mostrar diálogo de confirmación
-        respuesta = messagebox.askyesno(
-            "Confirmar Envío",
-            f"¿Enviar el reporte de QA al canal #{self.canal_seleccionado}?\n\n"
-            f"Tarea: {self.tarea_actual.titulo if self.tarea_actual else 'N/A'}"
-        )
-        
-        if respuesta:
-            self.enviar_ahora()
+
+        if not self.tarea_actual:
+            messagebox.showwarning("Datos", "No hay datos para enviar. Genera el reporte primero.")
+            return
+
+        # Obtener el mensaje generado
+        mensaje_default = self.resultado_text.get("1.0", tk.END).strip()
+
+        # Crear ventana de edición
+        dialog = tk.Toplevel(self)
+        dialog.title("Editar y Enviar a Slack")
+        dialog.geometry("600x400")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.geometry("+%d+%d" % (self.winfo_rootx() + 50, self.winfo_rooty() + 50))
+
+        tk.Label(dialog, text=f"Canal: #{self.canal_seleccionado}", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 0))
+        tk.Label(dialog, text="Edita el mensaje antes de enviarlo:").pack(anchor="w", padx=10, pady=(5, 0))
+
+        text_frame = tk.Frame(dialog)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        text_widget = tk.Text(text_frame, height=15, wrap=tk.WORD)
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert(tk.END, mensaje_default)
+
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(fill=tk.X, pady=(0, 10))
+
+        def enviar():
+            mensaje_editado = text_widget.get("1.0", tk.END).strip()
+            if not mensaje_editado:
+                messagebox.showwarning("Mensaje vacío", "El mensaje no puede estar vacío.")
+                return
+            try:
+                resultado = self.slack_service.enviar_notificacion(mensaje_editado, self.canal_seleccionado)
+                if resultado:
+                    messagebox.showinfo("Éxito", f"✅ Mensaje enviado exitosamente al canal #{self.canal_seleccionado}")
+                    dialog.destroy()
+                else:
+                    messagebox.showerror("Error", "❌ No se pudo enviar el mensaje")
+            except Exception as e:
+                messagebox.showerror("Error", f"❌ Error al enviar mensaje: {str(e)}")
+
+        def cancelar():
+            dialog.destroy()
+
+        tk.Button(button_frame, text="📤 Enviar", command=enviar).pack(side=tk.LEFT, padx=(10, 10))
+        tk.Button(button_frame, text="❌ Cancelar", command=cancelar).pack(side=tk.LEFT)
     
     def enviar_ahora(self):
         """Envía el reporte actual a Slack"""
