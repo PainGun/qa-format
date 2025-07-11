@@ -118,6 +118,16 @@ class PanelResultadoSlack(tk.Frame):
         self.historial_listbox.bind('<<ListboxSelect>>', self.mostrar_detalle_historial)
         self.detalle_text = tk.Text(frame_historial, height=6, state=tk.DISABLED)
         self.detalle_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0,10))
+        self.cargar_historial_desde_db()
+
+    def cargar_historial_desde_db(self):
+        self.historial_envios = db.get_historial_envios()
+        self.historial_listbox.delete(0, tk.END)
+        for envio in self.historial_envios:
+            resumen = envio['mensaje'][:60].replace('\n', ' ') + ("..." if len(envio['mensaje']) > 60 else "")
+            item = f"[{envio['fecha']}] → {envio['destino']} | {envio['estado']} | Remitente: @{envio['usuario']} | {resumen}"
+            self.historial_listbox.insert(tk.END, item)
+
     def agregar_a_historial(self, fecha, destino, mensaje, estado):
         usuario = db.get_config('slack_user') or 'desconocido'
         resumen = mensaje[:60].replace('\n', ' ') + ("..." if len(mensaje) > 60 else "")
@@ -130,6 +140,7 @@ class PanelResultadoSlack(tk.Frame):
             "usuario": usuario
         })
         self.historial_listbox.insert(tk.END, item)
+        db.save_historial_envio(fecha, destino, mensaje, estado, usuario)
     def mostrar_detalle_historial(self, event):
         seleccion = self.historial_listbox.curselection()
         if seleccion:

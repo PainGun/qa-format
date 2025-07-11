@@ -19,6 +19,15 @@ def init_db():
         username TEXT,
         real_name TEXT
     )''')
+    # Historial de envíos
+    c.execute('''CREATE TABLE IF NOT EXISTS historial_envios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT,
+        destino TEXT,
+        mensaje TEXT,
+        estado TEXT,
+        usuario TEXT
+    )''')
     conn.commit()
     conn.close()
 
@@ -55,3 +64,19 @@ def get_slack_users():
     users = [dict(id=row[0], username=row[1], real_name=row[2]) for row in c.fetchall()]
     conn.close()
     return users 
+
+def save_historial_envio(fecha, destino, mensaje, estado, usuario):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''INSERT INTO historial_envios (fecha, destino, mensaje, estado, usuario)
+                 VALUES (?, ?, ?, ?, ?)''', (fecha, destino, mensaje, estado, usuario))
+    conn.commit()
+    conn.close()
+
+def get_historial_envios():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT fecha, destino, mensaje, estado, usuario FROM historial_envios ORDER BY id ASC')
+    rows = c.fetchall()
+    conn.close()
+    return [dict(fecha=row[0], destino=row[1], mensaje=row[2], estado=row[3], usuario=row[4]) for row in rows] 
