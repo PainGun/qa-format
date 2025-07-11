@@ -16,10 +16,10 @@ def main():
     """Función principal de la aplicación"""
     try:
         # Importar después de configurar el path
-        from infrastructure.ui.views.main_window import GeneradorQAApp
+        from infrastructure.ui.views.main_window_slack import GeneradorQAMainWindow
         
-        # Crear y ejecutar la aplicación
-        app = GeneradorQAApp()
+        # Crear y ejecutar la aplicación principal con integración Slack
+        app = GeneradorQAMainWindow()
         app.run()
         
     except ImportError as e:
