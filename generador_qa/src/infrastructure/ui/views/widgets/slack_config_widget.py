@@ -12,6 +12,7 @@ try:
     settings = importlib.import_module('config.settings')
 except Exception:
     settings = None
+from generador_qa.src.shared.utils import db
 
 
 class SlackConfigWidget(tk.LabelFrame):
@@ -21,14 +22,17 @@ class SlackConfigWidget(tk.LabelFrame):
         super().__init__(parent, text="🔗 Configuración de Slack", **kwargs)
         self.on_slack_ready = on_slack_ready
         self.slack_service = None
-        
+        db.init_db()  # Inicializar la base de datos
         self.setup_ui()
-        # Cargar token automáticamente si existe en settings
-        if settings and hasattr(settings, 'SLACK_BOT_TOKEN'):
-            token = getattr(settings, 'SLACK_BOT_TOKEN')
-            if token:
-                self.entry_token.insert(0, token)
-                self.probar_conexion()
+        # Cargar token y usuario automáticamente si existen en la base de datos
+        token = db.get_config('slack_token')
+        if token:
+            self.entry_token.insert(0, token)
+        usuario = db.get_config('slack_user')
+        if usuario:
+            self.entry_usuario.insert(0, usuario)
+        if token:
+            self.after(100, self.probar_conexion)  # Espera a que la UI esté lista antes de probar conexión
     
     def setup_ui(self):
         """Configura la interfaz de usuario"""
@@ -41,15 +45,20 @@ class SlackConfigWidget(tk.LabelFrame):
         self.entry_token = tk.Entry(main_frame, width=50, show="*")
         self.entry_token.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
         
+        # Nombre de usuario
+        tk.Label(main_frame, text="Tu usuario Slack (@...):").grid(row=1, column=0, sticky="w", pady=5)
+        self.entry_usuario = tk.Entry(main_frame, width=30)
+        self.entry_usuario.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=5)
+        
         # Workspace (opcional)
-        tk.Label(main_frame, text="Workspace:").grid(row=1, column=0, sticky="w", pady=5)
+        tk.Label(main_frame, text="Workspace:").grid(row=2, column=0, sticky="w", pady=5)
         self.entry_workspace = tk.Entry(main_frame, width=30)
         self.entry_workspace.insert(0, "slack.com")
-        self.entry_workspace.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=5)
+        self.entry_workspace.grid(row=2, column=1, sticky="w", padx=(10, 0), pady=5)
         
         # Frame de botones
         button_frame = tk.Frame(main_frame)
-        button_frame.grid(row=2, column=0, columnspan=2, pady=10)
+        button_frame.grid(row=3, column=0, columnspan=2, pady=10)
         
         self.btn_test = tk.Button(button_frame, text="🧪 Probar Conexión", 
                                 command=self.probar_conexion)
@@ -83,10 +92,14 @@ class SlackConfigWidget(tk.LabelFrame):
     def probar_conexion(self):
         """Prueba la conexión con Slack"""
         token = self.entry_token.get().strip()
+        usuario = self.entry_usuario.get().strip()
         workspace = self.entry_workspace.get().strip()
         
         if not token:
             messagebox.showerror("Error", "El token de Slack es requerido")
+            return
+        if not usuario:
+            messagebox.showerror("Error", "El nombre de usuario es requerido")
             return
         
         try:
@@ -115,16 +128,20 @@ class SlackConfigWidget(tk.LabelFrame):
     def guardar_configuracion(self):
         """Guarda la configuración de Slack"""
         token = self.entry_token.get().strip()
+        usuario = self.entry_usuario.get().strip()
         workspace = self.entry_workspace.get().strip()
         
         if not token:
             messagebox.showerror("Error", "El token de Slack es requerido")
             return
+        if not usuario:
+            messagebox.showerror("Error", "El nombre de usuario es requerido")
+            return
         
         try:
-            # Aquí podrías guardar en un archivo de configuración
-            # Por ahora solo mostramos un mensaje
-            messagebox.showinfo("Configuración", "Configuración guardada (implementar persistencia)")
+            db.set_config('slack_token', token)
+            db.set_config('slack_user', usuario)
+            messagebox.showinfo("Configuración", "Configuración guardada correctamente en la base de datos")
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar configuración: {str(e)}")

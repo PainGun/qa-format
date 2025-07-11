@@ -9,6 +9,7 @@ from ....external.slack_notification_service import SlackNotificationService
 from ....external.slack_client import SlackClient
 from generador_qa.src.infrastructure.ui.views.widgets.slack_config_widget import SlackConfigWidget
 import datetime
+from generador_qa.src.shared.utils import db
 
 
 class PanelResultadoSlack(tk.Frame):
@@ -118,13 +119,15 @@ class PanelResultadoSlack(tk.Frame):
         self.detalle_text = tk.Text(frame_historial, height=6, state=tk.DISABLED)
         self.detalle_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0,10))
     def agregar_a_historial(self, fecha, destino, mensaje, estado):
+        usuario = db.get_config('slack_user') or 'desconocido'
         resumen = mensaje[:60].replace('\n', ' ') + ("..." if len(mensaje) > 60 else "")
-        item = f"[{fecha}] → {destino} | {estado} | {resumen}"
+        item = f"[{fecha}] → {destino} | {estado} | Remitente: @{usuario} | {resumen}"
         self.historial_envios.append({
             "fecha": fecha,
             "destino": destino,
             "mensaje": mensaje,
-            "estado": estado
+            "estado": estado,
+            "usuario": usuario
         })
         self.historial_listbox.insert(tk.END, item)
     def mostrar_detalle_historial(self, event):
@@ -132,7 +135,7 @@ class PanelResultadoSlack(tk.Frame):
         if seleccion:
             idx = seleccion[0]
             envio = self.historial_envios[idx]
-            detalle = f"Fecha: {envio['fecha']}\nDestino: {envio['destino']}\nEstado: {envio['estado']}\n\nMensaje:\n{envio['mensaje']}"
+            detalle = f"Fecha: {envio['fecha']}\nDestino: {envio['destino']}\nEstado: {envio['estado']}\nRemitente: @{envio['usuario']}\n\nMensaje:\n{envio['mensaje']}"
             self.detalle_text.config(state=tk.NORMAL)
             self.detalle_text.delete("1.0", tk.END)
             self.detalle_text.insert(tk.END, detalle)
@@ -273,11 +276,13 @@ class PanelResultadoSlack(tk.Frame):
                 messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
                 return
             try:
-                resultado = self.slack_service.enviar_notificacion(mensaje_editado, self.canal_seleccionado)
+                usuario = db.get_config('slack_user') or ''
+                mensaje_final = f"Remitente: @{usuario}\n\n{mensaje_editado}" if usuario else mensaje_editado
+                resultado = self.slack_service.enviar_notificacion(mensaje_final, self.canal_seleccionado)
                 destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
                 estado = "Éxito" if resultado else "Error"
                 fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                self.agregar_a_historial(fecha, destino_str, mensaje_editado, estado)
+                self.agregar_a_historial(fecha, destino_str, mensaje_final, estado)
                 if resultado:
                     messagebox.showinfo("Éxito", f"✅ Mensaje enviado exitosamente a {destino_str}")
                     dialog.destroy()
@@ -299,12 +304,14 @@ class PanelResultadoSlack(tk.Frame):
             messagebox.showwarning("Datos", "No hay datos para enviar. Genera el reporte primero.")
             return
         try:
+            usuario = db.get_config('slack_user') or ''
+            mensaje = self.resultado_text.get("1.0", tk.END).strip()
+            mensaje_final = f"Remitente: @{usuario}\n\n{mensaje}" if usuario else mensaje
             resultado = self.slack_service.enviar_reporte_qa(self.tarea_actual, self.canal_seleccionado)
             destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
             estado = "Éxito" if resultado else "Error"
-            mensaje = self.resultado_text.get("1.0", tk.END).strip()
             fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            self.agregar_a_historial(fecha, destino_str, mensaje, estado)
+            self.agregar_a_historial(fecha, destino_str, mensaje_final, estado)
             if resultado:
                 messagebox.showinfo("Éxito", f"✅ Reporte enviado exitosamente a {destino_str}")
             else:
@@ -318,12 +325,14 @@ class PanelResultadoSlack(tk.Frame):
             messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
             return
         try:
+            usuario = db.get_config('slack_user') or ''
             mensaje = "🧪 Mensaje de prueba desde Generador QA - ¡La integración funciona perfectamente!"
-            resultado = self.slack_service.enviar_notificacion(mensaje, self.canal_seleccionado)
+            mensaje_final = f"Remitente: @{usuario}\n\n{mensaje}" if usuario else mensaje
+            resultado = self.slack_service.enviar_notificacion(mensaje_final, self.canal_seleccionado)
             destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
             estado = "Éxito" if resultado else "Error"
             fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            self.agregar_a_historial(fecha, destino_str, mensaje, estado)
+            self.agregar_a_historial(fecha, destino_str, mensaje_final, estado)
             if resultado:
                 messagebox.showinfo("Éxito", f"✅ Mensaje de prueba enviado a {destino_str}")
             else:
