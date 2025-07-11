@@ -44,6 +44,7 @@ generador_qa/
 ### Requisitos
 - Python 3.7+
 - tkinter (incluido en la mayoría de instalaciones de Python)
+- requests (para integración con Slack)
 
 ### Instalación
 ```bash
@@ -51,12 +52,30 @@ generador_qa/
 git clone <repository-url>
 cd generador_qa
 
-# Instalar dependencias (opcional para desarrollo)
+# Instalar dependencias
 pip install -r requirements.txt
 
-# Ejecutar la aplicación
+# Ejecutar la aplicación básica
 python main.py
+
+# Ejecutar la aplicación con Slack
+python main_slack.py
 ```
+
+### 🔗 Configuración de Slack
+
+1. **Crear App de Slack**:
+   - Ve a [api.slack.com/apps](https://api.slack.com/apps)
+   - Crea una nueva app
+   - Configura permisos: `chat:write`, `channels:read`, `groups:read`
+   - Instala la app en tu workspace
+   - Copia el token (empieza con `xoxb-`)
+
+2. **Configurar en la Aplicación**:
+   - Abre la aplicación: `python main_slack.py`
+   - Ve a la pestaña "🔗 Slack"
+   - Pega tu token de bot
+   - Haz clic en "🧪 Probar Conexión"
 
 ## 🏗️ Arquitectura Clean
 
@@ -101,6 +120,9 @@ python main.py
 - Formato markdown estructurado
 - Información completa de la tarea
 - Copia automática al portapapeles
+- **Envío directo a Slack** 🆕
+- **Selección de canales** 🆕
+- **Formato rico con emojis** 🆕
 
 ## 🧪 Testing
 
@@ -130,22 +152,28 @@ pytest tests/integration/
 - [x] Configurar archivos básicos
 - [x] Documentación inicial
 
-### Fase 2: Migración de Entidades
+### Fase 2: Migración de Entidades ✅
 - [x] Crear entidades del dominio
 - [x] Implementar reglas de negocio
-- [ ] Migrar lógica existente
+- [x] Migrar lógica existente
 
-### Fase 3: Casos de Uso
-- [ ] Crear casos de uso
-- [ ] Implementar orquestación
-- [ ] Separar lógica de UI
+### Fase 3: Casos de Uso ✅
+- [x] Crear casos de uso
+- [x] Implementar orquestación
+- [x] Separar lógica de UI
 
-### Fase 4: UI Refactorizada
-- [ ] Migrar componentes de UI
-- [ ] Implementar presentadores
-- [ ] Conectar con casos de uso
+### Fase 4: UI Refactorizada ✅
+- [x] Migrar componentes de UI
+- [x] Implementar presentadores
+- [x] Conectar con casos de uso
 
-### Fase 5: Testing Completo
+### Fase 5: Integración con Slack ✅
+- [x] Implementar servicio de notificaciones
+- [x] Crear cliente de Slack API
+- [x] Integrar en la interfaz de usuario
+- [x] Documentación completa
+
+### Fase 6: Testing Completo
 - [ ] Agregar pruebas unitarias
 - [ ] Implementar pruebas de integración
 - [ ] Cobertura de código
