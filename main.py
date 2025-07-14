@@ -1,27 +1,343 @@
-import sys
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                           QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-                           QTextEdit, QListWidget, QScrollArea, QFrame,
-                           QMessageBox, QGroupBox, QGridLayout, QSizePolicy)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QClipboard
-from controllers import TareaQAController
-from styles import DarkTheme
+#!/usr/bin/env python3
+"""
+Generador de QA - Aplicación Principal
+======================================
 
-class QAGenerator(QMainWindow):
-    def __init__(self):
+Aplicación de escritorio moderna para generar tareas de QA de manera eficiente.
+Construida con PyQt6 siguiendo principios de Clean Architecture.
+
+Autor: Developer Full Stack
+Versión: 2.0.0
+"""
+
+import sys
+from typing import Optional, Dict, Any
+from dataclasses import dataclass
+
+# ============================================================================
+# IMPORTS DE PYQT6
+# ============================================================================
+
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QLabel, QLineEdit, QPushButton, QTextEdit, QListWidget, 
+    QScrollArea, QFrame, QMessageBox, QGroupBox, QGridLayout, 
+    QSizePolicy, QSplitter
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtGui import QFont, QIcon, QClipboard, QPalette, QColor
+
+# ============================================================================
+# IMPORTS LOCALES
+# ============================================================================
+
+from controllers import TareaQAController
+
+# ============================================================================
+# DOMAIN LAYER - ENTITIES AND VALUE OBJECTS
+# ============================================================================
+
+@dataclass
+class ThemeColors:
+    """Value Object para colores del tema"""
+    background: str = '#282a36'
+    current_line: str = '#44475a'
+    selection: str = '#44475a'
+    foreground: str = '#f8f8f2'
+    comment: str = '#6272a4'
+    cyan: str = '#8be9fd'
+    green: str = '#50fa7b'
+    orange: str = '#ffb86c'
+    pink: str = '#ff79c6'
+    purple: str = '#bd93f9'
+    red: str = '#ff5555'
+    yellow: str = '#f1fa8c'
+
+@dataclass
+class UIConfig:
+    """Value Object para configuración de la UI"""
+    window_title: str = "📋 Generador Paso a QA - Clean Architecture"
+    window_width: int = 1200
+    window_height: int = 900
+    min_width: int = 1000
+    min_height: int = 700
+    scroll_spacing: int = 15
+    scroll_margins: int = 20
+
+# ============================================================================
+# INFRASTRUCTURE LAYER - PRESENTATION
+# ============================================================================
+
+class ThemeManager:
+    """Gestor de temas de la aplicación"""
+    
+    def __init__(self, colors: ThemeColors):
+        self.colors = colors
+    
+    def get_main_stylesheet(self) -> str:
+        """Retorna el stylesheet principal para la aplicación"""
+        return f"""
+        QMainWindow {{
+            background-color: {self.colors.background};
+            color: {self.colors.foreground};
+        }}
+        QWidget {{
+            background-color: {self.colors.background};
+            color: {self.colors.foreground};
+            font-family: 'Arial', sans-serif;
+        }}
+        {self._get_groupbox_style()}
+        {self._get_label_style()}
+        {self._get_lineedit_style()}
+        {self._get_button_style()}
+        {self._get_textedit_style()}
+        {self._get_listwidget_style()}
+        {self._get_scrollbar_style()}
+        {self._get_scrollarea_style()}
+        {self._get_frame_style()}
+        """
+    
+    def _get_groupbox_style(self) -> str:
+        """Estilos para QGroupBox (secciones)"""
+        return f"""
+        QGroupBox {{
+            font-weight: bold;
+            border: 2px solid {self.colors.current_line};
+            border-radius: 8px;
+            margin-top: 15px;
+            padding-top: 15px;
+            background-color: {self.colors.current_line};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 8px 15px 8px 15px;
+            color: {self.colors.foreground};
+            font-size: 14px;
+            font-weight: bold;
+            background-color: {self.colors.purple};
+            border-radius: 6px;
+            border: 1px solid #9580e0;
+        }}
+        """
+    
+    def _get_label_style(self) -> str:
+        """Estilos para QLabel"""
+        return f"""
+        QLabel {{
+            color: {self.colors.foreground};
+            font-weight: bold;
+        }}
+        """
+    
+    def _get_lineedit_style(self) -> str:
+        """Estilos para QLineEdit (campos de texto)"""
+        return f"""
+        QLineEdit {{
+            background-color: {self.colors.comment};
+            border: 2px solid #565b5e;
+            border-radius: 6px;
+            padding: 8px;
+            color: {self.colors.foreground};
+            font-size: 12px;
+        }}
+        QLineEdit:focus {{
+            border-color: {self.colors.purple};
+        }}
+        QLineEdit::placeholder {{
+            color: {self.colors.cyan};
+        }}
+        """
+    
+    def _get_button_style(self) -> str:
+        """Estilos para QPushButton"""
+        return f"""
+        QPushButton {{
+            background-color: {self.colors.comment};
+            border: 2px solid {self.colors.purple};
+            border-radius: 8px;
+            padding: 12px 18px;
+            color: {self.colors.foreground};
+            font-weight: bold;
+            font-size: 13px;
+            min-height: 20px;
+            text-align: center;
+        }}
+        QPushButton:hover {{
+            background-color: {self.colors.green};
+            border-color: #45d668;
+            color: {self.colors.background};
+        }}
+        QPushButton:pressed {{
+            background-color: #45d668;
+            border-color: #3bc95a;
+        }}
+        QPushButton#deleteBtn {{
+            background-color: {self.colors.red};
+            max-width: 40px;
+            padding: 8px;
+        }}
+        QPushButton#deleteBtn:hover {{
+            background-color: #ff6e6e;
+        }}
+        QPushButton#clearBtn {{
+            background-color: {self.colors.red};
+        }}
+        QPushButton#clearBtn:hover {{
+            background-color: #ff6e6e;
+        }}
+        """
+    
+    def _get_textedit_style(self) -> str:
+        """Estilos para QTextEdit (áreas de texto)"""
+        return f"""
+        QTextEdit {{
+            background-color: {self.colors.current_line};
+            border: 2px solid #565b5e;
+            border-radius: 6px;
+            padding: 8px;
+            color: {self.colors.foreground};
+            font-size: 12px;
+        }}
+        QTextEdit:focus {{
+            border-color: {self.colors.purple};
+        }}
+        """
+    
+    def _get_listwidget_style(self) -> str:
+        """Estilos para QListWidget (listas)"""
+        return f"""
+        QListWidget {{
+            background-color: {self.colors.current_line};
+            border: 2px solid #565b5e;
+            border-radius: 6px;
+            color: {self.colors.foreground};
+            font-size: 11px;
+            padding: 5px;
+        }}
+        QListWidget::item {{
+            padding: 5px;
+            border-bottom: 1px solid {self.colors.comment};
+        }}
+        QListWidget::item:selected {{
+            background-color: {self.colors.purple};
+            color: {self.colors.background};
+        }}
+        """
+    
+    def _get_scrollbar_style(self) -> str:
+        """Estilos para las barras de desplazamiento"""
+        return f"""
+        QScrollBar:vertical {{
+            background-color: {self.colors.current_line};
+            width: 12px;
+            border-radius: 6px;
+        }}
+        QScrollBar::handle:vertical {{
+            background-color: {self.colors.comment};
+            border-radius: 6px;
+            min-height: 20px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background-color: {self.colors.green};
+        }}
+        """
+    
+    def _get_scrollarea_style(self) -> str:
+        """Estilos para QScrollArea"""
+        return f"""
+        QScrollArea {{
+            border: none;
+            background-color: {self.colors.background};
+        }}
+        """
+    
+    def _get_frame_style(self) -> str:
+        """Estilos para QFrame"""
+        return f"""
+        QFrame {{
+            background-color: transparent;
+        }}
+        """
+    
+    def get_title_label_style(self) -> str:
+        """Estilo especial para el título principal"""
+        return f"""
+            color: {self.colors.foreground}; 
+            background-color: {self.colors.comment};
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid {self.colors.purple};
+            margin: 10px;
+        """
+
+# ============================================================================
+# APPLICATION LAYER - USE CASES
+# ============================================================================
+
+class UIComponentFactory:
+    """Factory para crear componentes de UI reutilizables"""
+    
+    @staticmethod
+    def create_title_label(text: str, theme_manager: ThemeManager) -> QLabel:
+        """Crea un título principal con estilo"""
+        title_label = QLabel(text)
+        title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet(theme_manager.get_title_label_style())
+        return title_label
+    
+    @staticmethod
+    def create_input_field(placeholder: str = "") -> QLineEdit:
+        """Crea un campo de entrada con placeholder"""
+        field = QLineEdit()
+        if placeholder:
+            field.setPlaceholderText(placeholder)
+        return field
+    
+    @staticmethod
+    def create_button(text: str, object_name: str = "") -> QPushButton:
+        """Crea un botón con texto y opcional object_name"""
+        button = QPushButton(text)
+        if object_name:
+            button.setObjectName(object_name)
+        return button
+    
+    @staticmethod
+    def create_list_with_delete(max_height: int = 100) -> QListWidget:
+        """Crea una lista con altura máxima configurable"""
+        list_widget = QListWidget()
+        list_widget.setMaximumHeight(max_height)
+        return list_widget
+
+# ============================================================================
+# PRESENTATION LAYER - VIEWS
+# ============================================================================
+
+class MainWindow(QMainWindow):
+    """Ventana principal de la aplicación"""
+    
+    def __init__(self, controller: TareaQAController, config: UIConfig):
         super().__init__()
-        self.setWindowTitle("📋 Generador Paso a QA - PyQt6 MVC")
-        self.setGeometry(100, 100, 1200, 900)
-        self.setMinimumSize(1000, 700)
+        self.controller = controller
+        self.config = config
+        self.theme_manager = ThemeManager(ThemeColors())
+        self.factory = UIComponentFactory()
         
-        # Inicializar el controlador MVC
-        self.controller = TareaQAController()
-        
-        # Aplicar tema oscuro
-        self.setStyleSheet(DarkTheme.get_main_stylesheet())
-        
-        # Crear widget central y layout principal
+        self._setup_window()
+        self._setup_ui()
+        self._setup_theme()
+        self._setup_connections()
+    
+    def _setup_window(self):
+        """Configura la ventana principal"""
+        self.setWindowTitle(self.config.window_title)
+        self.setGeometry(100, 100, self.config.window_width, self.config.window_height)
+        self.setMinimumSize(self.config.min_width, self.config.min_height)
+    
+    def _setup_ui(self):
+        """Configura la interfaz de usuario"""
+        # Widget central
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
@@ -37,29 +353,49 @@ class QAGenerator(QMainWindow):
         # Widget contenedor del scroll
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
-        scroll_layout.setSpacing(15)
-        scroll_layout.setContentsMargins(20, 20, 20, 20)
+        scroll_layout.setSpacing(self.config.scroll_spacing)
+        scroll_layout.setContentsMargins(
+            self.config.scroll_margins, 
+            self.config.scroll_margins, 
+            self.config.scroll_margins, 
+            self.config.scroll_margins
+        )
         
         # Título principal
-        title_label = QLabel("📋 FORMULARIO DE QA")
-        title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet(DarkTheme.get_title_label_style())
+        title_label = self.factory.create_title_label(
+            "📋 FORMULARIO DE QA", 
+            self.theme_manager
+        )
         scroll_layout.addWidget(title_label)
         
         # Crear secciones
-        self.create_basic_info_section(scroll_layout)
-        self.create_environments_section(scroll_layout)
-        self.create_comments_section(scroll_layout)
-        self.create_qa_responsibles_section(scroll_layout)
-        self.create_actions_section(scroll_layout)
-        self.create_result_section(scroll_layout)
+        self._create_sections(scroll_layout)
         
         # Configurar scroll
         scroll_area.setWidget(scroll_widget)
         main_layout.addWidget(scroll_area)
+    
+    def _create_sections(self, layout: QVBoxLayout):
+        """Crea todas las secciones de la aplicación"""
+        # Información básica
+        self._create_basic_info_section(layout)
         
-    def create_basic_info_section(self, layout):
+        # Ambientes y PRs
+        self._create_environments_section(layout)
+        
+        # Comentarios
+        self._create_comments_section(layout)
+        
+        # Responsables QA
+        self._create_qa_responsibles_section(layout)
+        
+        # Acciones
+        self._create_actions_section(layout)
+        
+        # Resultado
+        self._create_result_section(layout)
+    
+    def _create_basic_info_section(self, layout: QVBoxLayout):
         """Crea la sección de información básica"""
         group = QGroupBox("📌 INFORMACIÓN BÁSICA")
         group_layout = QVBoxLayout()
@@ -67,23 +403,21 @@ class QAGenerator(QMainWindow):
         # Título de la tarea
         title_layout = QHBoxLayout()
         title_layout.addWidget(QLabel("📝 Título de la Tarea:"))
-        self.entry_titulo = QLineEdit()
-        self.entry_titulo.setPlaceholderText("Ingrese el título de la tarea")
+        self.entry_titulo = self.factory.create_input_field("Ingrese el título de la tarea")
         title_layout.addWidget(self.entry_titulo)
         group_layout.addLayout(title_layout)
         
         # Jira
         jira_layout = QHBoxLayout()
         jira_layout.addWidget(QLabel("🔗 Link Jira:"))
-        self.entry_jira = QLineEdit()
-        self.entry_jira.setPlaceholderText("https://jira.empresa.com/...")
+        self.entry_jira = self.factory.create_input_field("https://jira.empresa.com/...")
         jira_layout.addWidget(self.entry_jira)
         group_layout.addLayout(jira_layout)
         
         group.setLayout(group_layout)
         layout.addWidget(group)
     
-    def create_environments_section(self, layout):
+    def _create_environments_section(self, layout: QVBoxLayout):
         """Crea la sección de ambientes y PRs"""
         group = QGroupBox("🌐 AMBIENTES + PRs")
         group_layout = QVBoxLayout()
@@ -94,42 +428,36 @@ class QAGenerator(QMainWindow):
         # Ambiente
         ambiente_layout = QVBoxLayout()
         ambiente_layout.addWidget(QLabel("🏢 Ambiente:"))
-        self.entry_ambiente = QLineEdit()
-        self.entry_ambiente.setPlaceholderText("dev, staging, prod...")
+        self.entry_ambiente = self.factory.create_input_field("dev, staging, prod...")
         ambiente_layout.addWidget(self.entry_ambiente)
         inputs_layout.addLayout(ambiente_layout)
         
         # PR
         pr_layout = QVBoxLayout()
         pr_layout.addWidget(QLabel("🔄 PR:"))
-        self.entry_pr = QLineEdit()
-        self.entry_pr.setPlaceholderText("Número o link del PR")
+        self.entry_pr = self.factory.create_input_field("Número o link del PR")
         pr_layout.addWidget(self.entry_pr)
         inputs_layout.addLayout(pr_layout)
         
         group_layout.addLayout(inputs_layout)
         
         # Botón agregar
-        btn_agregar_amb = QPushButton("➕ Agregar Ambiente + PR")
-        btn_agregar_amb.clicked.connect(self.agregar_ambiente_pr)
-        group_layout.addWidget(btn_agregar_amb)
+        self.btn_agregar_amb = self.factory.create_button("➕ Agregar Ambiente + PR")
+        group_layout.addWidget(self.btn_agregar_amb)
         
         # Lista y botón eliminar
         list_layout = QHBoxLayout()
-        self.lista_ambientes_prs = QListWidget()
-        self.lista_ambientes_prs.setMaximumHeight(100)
+        self.lista_ambientes_prs = self.factory.create_list_with_delete(100)
         list_layout.addWidget(self.lista_ambientes_prs)
         
-        btn_eliminar_amb = QPushButton("🗑️")
-        btn_eliminar_amb.setObjectName("deleteBtn")
-        btn_eliminar_amb.clicked.connect(lambda: self.eliminar_seleccionado(self.lista_ambientes_prs))
-        list_layout.addWidget(btn_eliminar_amb)
+        self.btn_eliminar_amb = self.factory.create_button("🗑️", "deleteBtn")
+        list_layout.addWidget(self.btn_eliminar_amb)
         
         group_layout.addLayout(list_layout)
         group.setLayout(group_layout)
         layout.addWidget(group)
     
-    def create_comments_section(self, layout):
+    def _create_comments_section(self, layout: QVBoxLayout):
         """Crea la sección de comentarios"""
         group = QGroupBox("💬 COMENTARIOS DE PRUEBA")
         group_layout = QVBoxLayout()
@@ -139,15 +467,13 @@ class QAGenerator(QMainWindow):
         
         tipo_layout = QVBoxLayout()
         tipo_layout.addWidget(QLabel("🔍 Tipo QA:"))
-        self.entry_tipo_qa = QLineEdit()
-        self.entry_tipo_qa.setPlaceholderText("Usabilidad / Código")
+        self.entry_tipo_qa = self.factory.create_input_field("Usabilidad / Código")
         tipo_layout.addWidget(self.entry_tipo_qa)
         fila1_layout.addLayout(tipo_layout)
         
         link_layout = QVBoxLayout()
         link_layout.addWidget(QLabel("🔗 Link para prueba:"))
-        self.entry_link_qa = QLineEdit()
-        self.entry_link_qa.setPlaceholderText("URL de la aplicación")
+        self.entry_link_qa = self.factory.create_input_field("URL de la aplicación")
         link_layout.addWidget(self.entry_link_qa)
         fila1_layout.addLayout(link_layout)
         
@@ -156,8 +482,7 @@ class QAGenerator(QMainWindow):
         # Segunda fila
         ambiente_layout = QVBoxLayout()
         ambiente_layout.addWidget(QLabel("🌐 Ambiente de prueba:"))
-        self.entry_ambiente_qa = QLineEdit()
-        self.entry_ambiente_qa.setPlaceholderText("Ambiente donde probar")
+        self.entry_ambiente_qa = self.factory.create_input_field("Ambiente donde probar")
         ambiente_layout.addWidget(self.entry_ambiente_qa)
         group_layout.addLayout(ambiente_layout)
         
@@ -171,27 +496,22 @@ class QAGenerator(QMainWindow):
         group_layout.addLayout(instr_layout)
         
         # Botón agregar
-        btn_agregar_com = QPushButton("➕ Agregar Comentario")
-        btn_agregar_com.clicked.connect(self.agregar_comentario)
-        group_layout.addWidget(btn_agregar_com)
+        self.btn_agregar_com = self.factory.create_button("➕ Agregar Comentario")
+        group_layout.addWidget(self.btn_agregar_com)
         
         # Lista y botón eliminar
         list_layout = QHBoxLayout()
-        self.lista_comentarios = QListWidget()
-        self.lista_comentarios.setMaximumHeight(100)
+        self.lista_comentarios = self.factory.create_list_with_delete(100)
         list_layout.addWidget(self.lista_comentarios)
         
-        btn_eliminar_com = QPushButton("🗑️")
-        btn_eliminar_com.setObjectName("deleteBtn")
-        btn_eliminar_com.clicked.connect(lambda: self.eliminar_seleccionado(self.lista_comentarios))
-        list_layout.addWidget(btn_eliminar_com)
+        self.btn_eliminar_com = self.factory.create_button("🗑️", "deleteBtn")
+        list_layout.addWidget(self.btn_eliminar_com)
         
         group_layout.addLayout(list_layout)
         group.setLayout(group_layout)
         layout.addWidget(group)
-
     
-    def create_qa_responsibles_section(self, layout):
+    def _create_qa_responsibles_section(self, layout: QVBoxLayout):
         """Crea la sección de responsables QA"""
         group = QGroupBox("👥 RESPONSABLES QA")
         group_layout = QVBoxLayout()
@@ -201,25 +521,20 @@ class QAGenerator(QMainWindow):
         usu_layout.addWidget(QLabel("🎨 QA Usabilidad:"))
         
         usu_input_layout = QHBoxLayout()
-        self.entry_qa_usu = QLineEdit()
-        self.entry_qa_usu.setPlaceholderText("Nombre del responsable de QA Usabilidad")
+        self.entry_qa_usu = self.factory.create_input_field("Nombre del responsable de QA Usabilidad")
         usu_input_layout.addWidget(self.entry_qa_usu)
         
-        btn_agregar_usu = QPushButton("➕")
-        btn_agregar_usu.clicked.connect(self.agregar_qa_usu)
-        usu_input_layout.addWidget(btn_agregar_usu)
+        self.btn_agregar_usu = self.factory.create_button("➕")
+        usu_input_layout.addWidget(self.btn_agregar_usu)
         
         usu_layout.addLayout(usu_input_layout)
         
         usu_list_layout = QHBoxLayout()
-        self.lista_qa_usu = QListWidget()
-        self.lista_qa_usu.setMaximumHeight(60)
+        self.lista_qa_usu = self.factory.create_list_with_delete(60)
         usu_list_layout.addWidget(self.lista_qa_usu)
         
-        btn_eliminar_usu = QPushButton("🗑️")
-        btn_eliminar_usu.setObjectName("deleteBtn")
-        btn_eliminar_usu.clicked.connect(lambda: self.eliminar_seleccionado(self.lista_qa_usu))
-        usu_list_layout.addWidget(btn_eliminar_usu)
+        self.btn_eliminar_usu = self.factory.create_button("🗑️", "deleteBtn")
+        usu_list_layout.addWidget(self.btn_eliminar_usu)
         
         usu_layout.addLayout(usu_list_layout)
         group_layout.addLayout(usu_layout)
@@ -229,25 +544,20 @@ class QAGenerator(QMainWindow):
         cod_layout.addWidget(QLabel("💻 QA Código:"))
         
         cod_input_layout = QHBoxLayout()
-        self.entry_qa_cod = QLineEdit()
-        self.entry_qa_cod.setPlaceholderText("Nombre del responsable de QA Código")
+        self.entry_qa_cod = self.factory.create_input_field("Nombre del responsable de QA Código")
         cod_input_layout.addWidget(self.entry_qa_cod)
         
-        btn_agregar_cod = QPushButton("➕")
-        btn_agregar_cod.clicked.connect(self.agregar_qa_cod)
-        cod_input_layout.addWidget(btn_agregar_cod)
+        self.btn_agregar_cod = self.factory.create_button("➕")
+        cod_input_layout.addWidget(self.btn_agregar_cod)
         
         cod_layout.addLayout(cod_input_layout)
         
         cod_list_layout = QHBoxLayout()
-        self.lista_qa_cod = QListWidget()
-        self.lista_qa_cod.setMaximumHeight(60)
+        self.lista_qa_cod = self.factory.create_list_with_delete(60)
         cod_list_layout.addWidget(self.lista_qa_cod)
         
-        btn_eliminar_cod = QPushButton("🗑️")
-        btn_eliminar_cod.setObjectName("deleteBtn")
-        btn_eliminar_cod.clicked.connect(lambda: self.eliminar_seleccionado(self.lista_qa_cod))
-        cod_list_layout.addWidget(btn_eliminar_cod)
+        self.btn_eliminar_cod = self.factory.create_button("🗑️", "deleteBtn")
+        cod_list_layout.addWidget(self.btn_eliminar_cod)
         
         cod_layout.addLayout(cod_list_layout)
         group_layout.addLayout(cod_layout)
@@ -255,28 +565,24 @@ class QAGenerator(QMainWindow):
         group.setLayout(group_layout)
         layout.addWidget(group)
     
-    def create_actions_section(self, layout):
+    def _create_actions_section(self, layout: QVBoxLayout):
         """Crea la sección de botones de acción"""
         group = QGroupBox("⚡ ACCIONES")
         group_layout = QHBoxLayout()
         
-        btn_generar = QPushButton("🚀 Generar Texto")
-        btn_generar.clicked.connect(self.generar_texto)
-        group_layout.addWidget(btn_generar)
+        self.btn_generar = self.factory.create_button("🚀 Generar Texto")
+        group_layout.addWidget(self.btn_generar)
         
-        btn_copiar = QPushButton("📋 Copiar al Portapapeles")
-        btn_copiar.clicked.connect(self.copiar_texto)
-        group_layout.addWidget(btn_copiar)
+        self.btn_copiar = self.factory.create_button("📋 Copiar al Portapapeles")
+        group_layout.addWidget(self.btn_copiar)
         
-        btn_limpiar = QPushButton("🧹 Limpiar Todo")
-        btn_limpiar.setObjectName("clearBtn")
-        btn_limpiar.clicked.connect(self.limpiar_formulario)
-        group_layout.addWidget(btn_limpiar)
+        self.btn_limpiar = self.factory.create_button("🧹 Limpiar Todo", "clearBtn")
+        group_layout.addWidget(self.btn_limpiar)
         
         group.setLayout(group_layout)
         layout.addWidget(group)
     
-    def create_result_section(self, layout):
+    def _create_result_section(self, layout: QVBoxLayout):
         """Crea la sección de resultado"""
         group = QGroupBox("📄 RESULTADO GENERADO")
         group_layout = QVBoxLayout()
@@ -289,31 +595,41 @@ class QAGenerator(QMainWindow):
         group.setLayout(group_layout)
         layout.addWidget(group)
     
-    def eliminar_seleccionado(self, listbox):
-        """Elimina el elemento seleccionado de una lista usando el controlador"""
-        current_row = listbox.currentRow()
-        if current_row >= 0:
-            # Determinar qué tipo de lista es y usar el controlador apropiado
-            if listbox == self.lista_ambientes_prs:
-                if self.controller.eliminar_ambiente_pr(current_row):
-                    listbox.takeItem(current_row)
-            elif listbox == self.lista_comentarios:
-                if self.controller.eliminar_comentario(current_row):
-                    listbox.takeItem(current_row)
-            elif listbox == self.lista_qa_usu:
-                if self.controller.eliminar_qa_usabilidad(current_row):
-                    listbox.takeItem(current_row)
-            elif listbox == self.lista_qa_cod:
-                if self.controller.eliminar_qa_codigo(current_row):
-                    listbox.takeItem(current_row)
+    def _setup_theme(self):
+        """Aplica el tema a la aplicación"""
+        self.setStyleSheet(self.theme_manager.get_main_stylesheet())
     
-    def agregar_ambiente_pr(self):
-        """Agrega ambiente y PR usando el controlador"""
+    def _setup_connections(self):
+        """Configura las conexiones de señales"""
+        # Conectar botones de ambientes
+        self.btn_agregar_amb.clicked.connect(self._on_agregar_ambiente_pr)
+        self.btn_eliminar_amb.clicked.connect(lambda: self._on_eliminar_seleccionado(self.lista_ambientes_prs, "ambiente"))
+        
+        # Conectar botones de comentarios
+        self.btn_agregar_com.clicked.connect(self._on_agregar_comentario)
+        self.btn_eliminar_com.clicked.connect(lambda: self._on_eliminar_seleccionado(self.lista_comentarios, "comentario"))
+        
+        # Conectar botones de QA
+        self.btn_agregar_usu.clicked.connect(self._on_agregar_qa_usu)
+        self.btn_eliminar_usu.clicked.connect(lambda: self._on_eliminar_seleccionado(self.lista_qa_usu, "qa_usu"))
+        self.btn_agregar_cod.clicked.connect(self._on_agregar_qa_cod)
+        self.btn_eliminar_cod.clicked.connect(lambda: self._on_eliminar_seleccionado(self.lista_qa_cod, "qa_cod"))
+        
+        # Conectar botones de acciones
+        self.btn_generar.clicked.connect(self._on_generar_texto)
+        self.btn_copiar.clicked.connect(self._on_copiar_texto)
+        self.btn_limpiar.clicked.connect(self._on_limpiar_formulario)
+        
+        # Conectar campos de texto
+        self.entry_titulo.textChanged.connect(self._on_titulo_changed)
+        self.entry_jira.textChanged.connect(self._on_jira_changed)
+    
+    def _on_agregar_ambiente_pr(self):
+        """Maneja el evento de agregar ambiente y PR"""
         ambiente = self.entry_ambiente.text().strip()
         pr = self.entry_pr.text().strip()
         
         if self.controller.agregar_ambiente_pr(ambiente, pr):
-            # Usar el formateo del controlador
             item_texto = self.controller.formatear_ambiente_pr_para_ui(ambiente, pr)
             self.lista_ambientes_prs.addItem(item_texto)
             self.entry_ambiente.clear()
@@ -321,15 +637,14 @@ class QAGenerator(QMainWindow):
         else:
             QMessageBox.warning(self, "Campos vacíos", "Por favor, complete ambos campos.")
     
-    def agregar_comentario(self):
-        """Agrega comentario usando el controlador"""
+    def _on_agregar_comentario(self):
+        """Maneja el evento de agregar comentario"""
         tipo = self.entry_tipo_qa.text().strip()
         link = self.entry_link_qa.text().strip()
         ambiente = self.entry_ambiente_qa.text().strip()
         instruccion = self.txt_instruccion.toPlainText().strip()
         
         if self.controller.agregar_comentario(tipo, link, ambiente, instruccion):
-            # Usar el formateo del controlador
             comentario_texto = self.controller.formatear_comentario_para_ui(tipo, link, ambiente, instruccion)
             self.lista_comentarios.addItem(comentario_texto)
             self.entry_tipo_qa.clear()
@@ -339,8 +654,8 @@ class QAGenerator(QMainWindow):
         else:
             QMessageBox.warning(self, "Campos vacíos", "Por favor, complete todos los campos.")
     
-    def agregar_qa_usu(self):
-        """Agrega QA Usabilidad usando el controlador"""
+    def _on_agregar_qa_usu(self):
+        """Maneja el evento de agregar QA Usabilidad"""
         qa = self.entry_qa_usu.text().strip()
         if self.controller.agregar_qa_usabilidad(qa):
             self.lista_qa_usu.addItem(qa)
@@ -348,8 +663,8 @@ class QAGenerator(QMainWindow):
         else:
             QMessageBox.warning(self, "Campo vacío", "Por favor, ingrese un nombre.")
     
-    def agregar_qa_cod(self):
-        """Agrega QA Código usando el controlador"""
+    def _on_agregar_qa_cod(self):
+        """Maneja el evento de agregar QA Código"""
         qa = self.entry_qa_cod.text().strip()
         if self.controller.agregar_qa_codigo(qa):
             self.lista_qa_cod.addItem(qa)
@@ -357,8 +672,25 @@ class QAGenerator(QMainWindow):
         else:
             QMessageBox.warning(self, "Campo vacío", "Por favor, ingrese un nombre.")
     
-    def generar_texto(self):
-        """Genera el texto usando el controlador"""
+    def _on_eliminar_seleccionado(self, listbox: QListWidget, tipo: str):
+        """Maneja el evento de eliminar elemento seleccionado"""
+        current_row = listbox.currentRow()
+        if current_row >= 0:
+            success = False
+            if tipo == "ambiente":
+                success = self.controller.eliminar_ambiente_pr(current_row)
+            elif tipo == "comentario":
+                success = self.controller.eliminar_comentario(current_row)
+            elif tipo == "qa_usu":
+                success = self.controller.eliminar_qa_usabilidad(current_row)
+            elif tipo == "qa_cod":
+                success = self.controller.eliminar_qa_codigo(current_row)
+            
+            if success:
+                listbox.takeItem(current_row)
+    
+    def _on_generar_texto(self):
+        """Maneja el evento de generar texto"""
         # Actualizar el controlador con los datos actuales de la UI
         self.controller.actualizar_titulo(self.entry_titulo.text())
         self.controller.actualizar_jira(self.entry_jira.text())
@@ -367,16 +699,16 @@ class QAGenerator(QMainWindow):
         resultado = self.controller.generar_texto()
         self.resultado_text.setPlainText(resultado)
     
-    def copiar_texto(self):
-        """Copia el texto al portapapeles usando el controlador"""
+    def _on_copiar_texto(self):
+        """Maneja el evento de copiar texto"""
         texto = self.resultado_text.toPlainText()
         if self.controller.copiar_al_portapapeles(texto):
             QMessageBox.information(self, "✅ Copiado", "Texto copiado al portapapeles exitosamente.")
         else:
             QMessageBox.warning(self, "❌ Error", "No se pudo copiar al portapapeles.")
     
-    def limpiar_formulario(self):
-        """Limpia todos los campos usando el controlador"""
+    def _on_limpiar_formulario(self):
+        """Maneja el evento de limpiar formulario"""
         # Limpiar datos del controlador
         self.controller.limpiar_datos()
         
@@ -397,38 +729,60 @@ class QAGenerator(QMainWindow):
         self.lista_qa_cod.clear()
         self.resultado_text.clear()
     
-    def sincronizar_ui_con_controlador(self):
-        """Sincroniza toda la UI con los datos del controlador"""
-        # Obtener todas las listas del controlador
-        listas = self.controller.obtener_todas_las_listas_para_ui()
+    def _on_titulo_changed(self, text: str):
+        """Maneja cambios en el título"""
+        self.controller.actualizar_titulo(text)
+    
+    def _on_jira_changed(self, text: str):
+        """Maneja cambios en el link de Jira"""
+        self.controller.actualizar_jira(text)
+
+# ============================================================================
+# APPLICATION ENTRY POINT
+# ============================================================================
+
+class QAGeneratorApp:
+    """Clase principal de la aplicación siguiendo Clean Architecture"""
+    
+    def __init__(self):
+        self.config = UIConfig()
+        self.controller = TareaQAController()
+        self.app = None
+        self.window = None
+    
+    def initialize(self):
+        """Inicializa la aplicación"""
+        self.app = QApplication(sys.argv)
+        self.app.setStyle('Fusion')
         
-        # Limpiar listas UI
-        self.lista_ambientes_prs.clear()
-        self.lista_comentarios.clear()
-        self.lista_qa_usu.clear()
-        self.lista_qa_cod.clear()
+        self.window = MainWindow(self.controller, self.config)
+        self.window.show()
+    
+    def run(self):
+        """Ejecuta la aplicación"""
+        if not self.app:
+            self.initialize()
         
-        # Poblar listas UI con datos del controlador
-        for item in listas['ambientes_prs']:
-            self.lista_ambientes_prs.addItem(item)
-        
-        for item in listas['comentarios']:
-            self.lista_comentarios.addItem(item)
-            
-        for item in listas['qa_usabilidad']:
-            self.lista_qa_usu.addItem(item)
-            
-        for item in listas['qa_codigo']:
-            self.lista_qa_cod.addItem(item)
+        if self.app:
+            return self.app.exec()
+        return 1
+    
+    def cleanup(self):
+        """Limpia recursos de la aplicación"""
+        if self.app:
+            self.app.quit()
 
 def main():
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Estilo moderno
-    
-    window = QAGenerator()
-    window.show()
-    
-    sys.exit(app.exec())
+    """Función principal de la aplicación"""
+    try:
+        app = QAGeneratorApp()
+        return app.run()
+    except Exception as e:
+        print(f"Error al ejecutar la aplicación: {e}")
+        return 1
+    finally:
+        if 'app' in locals():
+            app.cleanup()
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main()) 
