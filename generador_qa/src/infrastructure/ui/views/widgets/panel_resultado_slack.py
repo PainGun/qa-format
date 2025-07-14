@@ -211,7 +211,7 @@ class PanelResultadoSlack(tk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title("Seleccionar Destino de Slack")
         dialog.geometry("400x400")
-        dialog.transient(self.master)
+        dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
         dialog.geometry("+%d+%d" % (self.winfo_rootx() + 50, self.winfo_rooty() + 50))
         main_frame = tk.Frame(dialog)
@@ -265,7 +265,7 @@ class PanelResultadoSlack(tk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title("Editar y Enviar a Slack")
         dialog.geometry("600x400")
-        dialog.transient(self.master)
+        dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
         dialog.geometry("+%d+%d" % (self.winfo_rootx() + 50, self.winfo_rooty() + 50))
         destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
@@ -286,9 +286,21 @@ class PanelResultadoSlack(tk.Frame):
             if not self.canal_seleccionado:
                 messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
                 return
+            if not self.slack_service:
+                messagebox.showerror("Error", "Slack no está configurado.")
+                return
             try:
-                usuario = db.get_config('slack_user') or ''
-                mensaje_final = f"Remitente: @{usuario}\n\n{mensaje_editado}" if usuario else mensaje_editado
+                # Buscar user_id si es usuario
+                remitente = None
+                if self.canal_seleccionado_tipo == 'usuario':
+                    for d in getattr(self, 'destinos_disponibles', []):
+                        if d['tipo'] == 'usuario' and d['id'] == self.canal_seleccionado:
+                            remitente = f"<@{d['id']}>"
+                            break
+                else:
+                    usuario = db.get_config('slack_user') or ''
+                    remitente = f"@{usuario}" if usuario else ''
+                mensaje_final = f"Remitente: {remitente}\n\n{mensaje_editado}" if remitente else mensaje_editado
                 resultado = self.slack_service.enviar_notificacion(mensaje_final, self.canal_seleccionado)
                 destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
                 estado = "Éxito" if resultado else "Error"
@@ -314,10 +326,22 @@ class PanelResultadoSlack(tk.Frame):
         if not self.tarea_actual:
             messagebox.showwarning("Datos", "No hay datos para enviar. Genera el reporte primero.")
             return
+        if not self.slack_service:
+            messagebox.showerror("Error", "Slack no está configurado.")
+            return
         try:
-            usuario = db.get_config('slack_user') or ''
+            # Buscar user_id si es usuario
+            remitente = None
+            if self.canal_seleccionado_tipo == 'usuario':
+                for d in getattr(self, 'destinos_disponibles', []):
+                    if d['tipo'] == 'usuario' and d['id'] == self.canal_seleccionado:
+                        remitente = f"<@{d['id']}>"
+                        break
+            else:
+                usuario = db.get_config('slack_user') or ''
+                remitente = f"@{usuario}" if usuario else ''
             mensaje = self.resultado_text.get("1.0", tk.END).strip()
-            mensaje_final = f"Remitente: @{usuario}\n\n{mensaje}" if usuario else mensaje
+            mensaje_final = f"Remitente: {remitente}\n\n{mensaje}" if remitente else mensaje
             resultado = self.slack_service.enviar_reporte_qa(self.tarea_actual, self.canal_seleccionado)
             destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
             estado = "Éxito" if resultado else "Error"
@@ -335,10 +359,22 @@ class PanelResultadoSlack(tk.Frame):
         if not self.slack_service or not self.canal_seleccionado:
             messagebox.showwarning("Destino", "Selecciona un canal o usuario antes de enviar.")
             return
+        if not self.slack_service:
+            messagebox.showerror("Error", "Slack no está configurado.")
+            return
         try:
-            usuario = db.get_config('slack_user') or ''
+            # Buscar user_id si es usuario
+            remitente = None
+            if self.canal_seleccionado_tipo == 'usuario':
+                for d in getattr(self, 'destinos_disponibles', []):
+                    if d['tipo'] == 'usuario' and d['id'] == self.canal_seleccionado:
+                        remitente = f"<@{d['id']}>"
+                        break
+            else:
+                usuario = db.get_config('slack_user') or ''
+                remitente = f"@{usuario}" if usuario else ''
             mensaje = "🧪 Mensaje de prueba desde Generador QA - ¡La integración funciona perfectamente!"
-            mensaje_final = f"Remitente: @{usuario}\n\n{mensaje}" if usuario else mensaje
+            mensaje_final = f"Remitente: {remitente}\n\n{mensaje}" if remitente else mensaje
             resultado = self.slack_service.enviar_notificacion(mensaje_final, self.canal_seleccionado)
             destino_str = self.canal_seleccionado if self.canal_seleccionado_tipo == 'usuario' else f"#{self.canal_seleccionado}"
             estado = "Éxito" if resultado else "Error"
