@@ -22,16 +22,21 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QLabel, QLineEdit, QPushButton, QTextEdit, QListWidget, 
     QScrollArea, QFrame, QMessageBox, QGroupBox, QGridLayout, 
-    QSizePolicy, QSplitter
+    QSizePolicy, QSplitter, QTabWidget, QComboBox, QCompleter
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QObject
 from PyQt6.QtGui import QFont, QIcon, QClipboard, QPalette, QColor
+import json
 
 # ============================================================================
 # IMPORTS LOCALES
 # ============================================================================
 
 from controllers import TareaQAController
+from generador_qa.src.infrastructure.external.slack_notification_service import SlackNotificationService
+from generador_qa.src.application.use_cases.enviar_notificacion_slack import EnviarNotificacionSlackUseCase
+from generador_qa.src.shared.utils import db
+import datetime
 
 # ============================================================================
 # DOMAIN LAYER - ENTITIES AND VALUE OBJECTS
@@ -310,6 +315,227 @@ class UIComponentFactory:
         list_widget.setMaximumHeight(max_height)
         return list_widget
 
+class SlackPanel(QWidget):
+    def __init__(self, parent=None, get_tarea_fn=None):
+        super().__init__(parent)
+        self.get_tarea_fn = get_tarea_fn  # función para obtener la tarea actual
+        self.slack_service = None
+        self.use_case = None
+        self.canales = []
+        self.usuarios = []
+        self._setup_ui()
+        db.init_db()
+        self._load_config()
+        self._load_historial()
+        # Conexión automática si hay config
+        if self.token_input.text().strip() and self.usuario_input.text().strip():
+            self._probar_conexion()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+        # --- Tab Configuración ---
+        tab_config = QWidget()
+        config_layout = QVBoxLayout(tab_config)
+        self.token_input = QLineEdit()
+        self.token_input.setPlaceholderText('Token de Bot (xoxb-...)')
+        self.usuario_input = QLineEdit()
+        self.usuario_input.setPlaceholderText('Usuario Slack (sin @)')
+        self.workspace_input = QLineEdit()
+        self.workspace_input.setPlaceholderText('Workspace (ej: tu-workspace.slack.com)')
+        self.btn_probar = QPushButton('🧪 Probar Conexión')
+        self.lbl_status = QLabel('Estado: ❌ No conectado')
+        config_layout.addWidget(QLabel('Token Slack:'))
+        config_layout.addWidget(self.token_input)
+        config_layout.addWidget(QLabel('Usuario Slack:'))
+        config_layout.addWidget(self.usuario_input)
+        config_layout.addWidget(QLabel('Workspace:'))
+        config_layout.addWidget(self.workspace_input)
+        config_layout.addWidget(self.btn_probar)
+        config_layout.addWidget(self.lbl_status)
+        self.btn_probar.clicked.connect(self._probar_conexion)
+        self.tabs.addTab(tab_config, '🔗 Configuración')
+        # --- Tab Enviar ---
+        tab_enviar = QWidget()
+        enviar_layout = QVBoxLayout(tab_enviar)
+        self.combo_destino = QComboBox()
+        self.combo_destino.setEditable(True)
+        self.combo_destino.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.combo_destino.setMaxVisibleItems(15)  # scroll
+        self.completer = QCompleter()
+        self.combo_destino.setCompleter(self.completer)
+        self.btn_cargar_canales = QPushButton('🔄 Cargar Canales/Usuarios')
+        self.btn_enviar = QPushButton('📤 Enviar a Slack')
+        self.btn_enviar.setEnabled(False)
+        enviar_layout.addWidget(QLabel('Destino Slack:'))
+        enviar_layout.addWidget(self.combo_destino)
+        enviar_layout.addWidget(self.btn_cargar_canales)
+        enviar_layout.addWidget(self.btn_enviar)
+        self.lbl_envio = QLabel('')
+        enviar_layout.addWidget(self.lbl_envio)
+        self.btn_cargar_canales.clicked.connect(self._cargar_canales)
+        self.btn_enviar.clicked.connect(self._enviar_a_slack)
+        self.tabs.addTab(tab_enviar, '�� Enviar')
+        # --- Tab Historial ---
+        tab_hist = QWidget()
+        hist_layout = QVBoxLayout(tab_hist)
+        self.historial_list = QListWidget()
+        self.detalle_text = QTextEdit()
+        self.detalle_text.setReadOnly(True)
+        hist_layout.addWidget(self.historial_list)
+        hist_layout.addWidget(QLabel('Detalle:'))
+        hist_layout.addWidget(self.detalle_text)
+        self.historial_list.currentRowChanged.connect(self._mostrar_detalle_historial)
+        self.tabs.addTab(tab_hist, '🕓 Historial')
+
+    def _persistir_canales_usuarios(self):
+        # Guardar en config como JSON
+        db.set_config('slack_canales', json.dumps(self.canales))
+        db.set_config('slack_usuarios', json.dumps(self.usuarios))
+
+    def _cargar_canales_usuarios_guardados(self):
+        canales_json = db.get_config('slack_canales')
+        usuarios_json = db.get_config('slack_usuarios')
+        self.canales = json.loads(canales_json) if canales_json else []
+        self.usuarios = json.loads(usuarios_json) if usuarios_json else []
+        self._actualizar_selector_destino()
+
+    def _actualizar_selector_destino(self):
+        self.combo_destino.clear()
+        items = []
+        for c in self.canales:
+            self.combo_destino.addItem(f"#{c['name']}", c['id'])
+            items.append(f"#{c['name']}")
+        for u in self.usuarios:
+            self.combo_destino.addItem(f"@{u['name']}", u['id'])
+            items.append(f"@{u['name']}")
+        self.completer.setModel(self.combo_destino.model())
+        self.lbl_envio.setText('✅ Canales y usuarios listos')
+
+    def _cargar_canales(self):
+        if not self.slack_service:
+            self.lbl_envio.setText('❌ Slack no está configurado')
+            return
+        try:
+            self.canales = self.slack_service.obtener_canales_disponibles()
+            self.usuarios = self.slack_service.obtener_usuarios_disponibles()
+            self._persistir_canales_usuarios()
+            self._actualizar_selector_destino()
+        except Exception as e:
+            self.lbl_envio.setText(f'❌ Error: {e}')
+
+    def _load_config(self):
+        token = db.get_config('slack_token')
+        usuario = db.get_config('slack_user')
+        workspace = db.get_config('slack_workspace') or 'slack.com'
+        if token:
+            self.token_input.setText(token)
+        if usuario:
+            self.usuario_input.setText(usuario)
+        if workspace:
+            self.workspace_input.setText(workspace)
+        self._cargar_canales_usuarios_guardados()
+
+    def _save_config(self):
+        db.set_config('slack_token', self.token_input.text().strip())
+        db.set_config('slack_user', self.usuario_input.text().strip())
+        db.set_config('slack_workspace', self.workspace_input.text().strip())
+
+    def _probar_conexion(self):
+        token = self.token_input.text().strip()
+        usuario = self.usuario_input.text().strip()
+        workspace = self.workspace_input.text().strip() or 'slack.com'
+        if not token or not usuario:
+            self.lbl_status.setText('Estado: ❌ Faltan datos')
+            return
+        try:
+            self.slack_service = SlackNotificationService(token, workspace)
+            if self.slack_service.verificar_conexion():
+                self.lbl_status.setText('Estado: ✅ Conectado')
+                self._save_config()
+                self.use_case = EnviarNotificacionSlackUseCase(self.slack_service)
+                self.btn_enviar.setEnabled(True)
+            else:
+                self.lbl_status.setText('Estado: ❌ Error de conexión')
+                self.btn_enviar.setEnabled(False)
+        except Exception as e:
+            self.lbl_status.setText(f'Estado: ❌ {e}')
+            self.btn_enviar.setEnabled(False)
+
+    def _enviar_a_slack(self):
+        if not self.use_case:
+            self.lbl_envio.setText('❌ Slack no está configurado')
+            return
+        idx = self.combo_destino.currentIndex()
+        if idx < 0:
+            self.lbl_envio.setText('❌ Selecciona un canal o usuario')
+            return
+        canal_id = self.combo_destino.currentData()
+        tarea = self.get_tarea_fn() if self.get_tarea_fn else None
+        if not tarea:
+            self.lbl_envio.setText('❌ No hay tarea para enviar')
+            return
+        try:
+            resultado = self.use_case.enviar_reporte_qa(tarea, canal_id)
+            estado = 'Éxito' if resultado else 'Error'
+            fecha = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+            usuario = self.usuario_input.text().strip() or 'desconocido'
+            mensaje = tarea.generar_texto()
+            destino = self.combo_destino.currentText()
+            db.save_historial_envio(fecha, destino, mensaje, estado, usuario)
+            self._load_historial()
+            self.lbl_envio.setText(f'✅ Enviado a {destino}')
+        except Exception as e:
+            self.lbl_envio.setText(f'❌ Error: {e}')
+
+    def _load_historial(self):
+        self.historial_list.clear()
+        self.historial = db.get_historial_envios()
+        for envio in self.historial:
+            resumen = envio['mensaje'][:60].replace('\n', ' ') + ('...' if len(envio['mensaje']) > 60 else '')
+            item = f"[{envio['fecha']}] → {envio['destino']} | {envio['estado']} | Remitente: @{envio['usuario']} | {resumen}"
+            self.historial_list.addItem(item)
+        self.detalle_text.clear()
+
+    def _mostrar_detalle_historial(self, idx):
+        if idx < 0 or idx >= len(self.historial):
+            self.detalle_text.clear()
+            return
+        envio = self.historial[idx]
+        detalle = f"Fecha: {envio['fecha']}\nDestino: {envio['destino']}\nEstado: {envio['estado']}\nRemitente: @{envio['usuario']}\n\nMensaje:\n{envio['mensaje']}"
+        self.detalle_text.setPlainText(detalle)
+
+    def enviar_reporte_desde_main(self):
+        # Usar la configuración y canal seleccionados actualmente
+        if not self.use_case:
+            return False, 'Slack no está configurado. Ve a la pestaña Slack.'
+        idx = self.combo_destino.currentIndex()
+        if idx < 0:
+            return False, 'Selecciona un canal o usuario en la pestaña Slack.'
+        canal_id = self.combo_destino.currentData()
+        tarea = self.get_tarea_fn() if self.get_tarea_fn else None
+        if not tarea:
+            return False, 'No hay tarea para enviar.'
+        try:
+            resultado = self.use_case.enviar_reporte_qa(tarea, canal_id)
+            estado = 'Éxito' if resultado else 'Error'
+            fecha = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+            usuario = self.usuario_input.text().strip() or 'desconocido'
+            mensaje = tarea.generar_texto()
+            destino = self.combo_destino.currentText()
+            db.save_historial_envio(fecha, destino, mensaje, estado, usuario)
+            self._load_historial()
+            if resultado:
+                self.lbl_envio.setText(f'✅ Enviado a {destino}')
+                return True, f'Enviado a {destino}'
+            else:
+                self.lbl_envio.setText(f'❌ Error al enviar a {destino}')
+                return False, f'Error al enviar a {destino}'
+        except Exception as e:
+            self.lbl_envio.setText(f'❌ Error: {e}')
+            return False, f'Error: {e}'
+
 # ============================================================================
 # PRESENTATION LAYER - VIEWS
 # ============================================================================
@@ -343,14 +569,13 @@ class MainWindow(QMainWindow):
         
         # Layout principal con scroll
         main_layout = QVBoxLayout(central_widget)
-        
-        # Crear área de scroll
+        self.tabs = QTabWidget()
+        main_layout.addWidget(self.tabs)
+        # Crear área de scroll para la app principal
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        
-        # Widget contenedor del scroll
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
         scroll_layout.setSpacing(self.config.scroll_spacing)
@@ -360,21 +585,18 @@ class MainWindow(QMainWindow):
             self.config.scroll_margins, 
             self.config.scroll_margins
         )
-        
-        # Título principal
         title_label = self.factory.create_title_label(
             "📋 FORMULARIO DE QA", 
             self.theme_manager
         )
         scroll_layout.addWidget(title_label)
-        
-        # Crear secciones
         self._create_sections(scroll_layout)
-        
-        # Configurar scroll
         scroll_area.setWidget(scroll_widget)
-        main_layout.addWidget(scroll_area)
-    
+        self.tabs.addTab(scroll_area, '📝 QA')
+        # --- Integrar SlackPanel ---
+        self.slack_panel = SlackPanel(get_tarea_fn=self._get_tarea_actual)
+        self.tabs.addTab(self.slack_panel, '🔗 Slack')
+
     def _create_sections(self, layout: QVBoxLayout):
         """Crea todas las secciones de la aplicación"""
         # Información básica
@@ -570,6 +792,9 @@ class MainWindow(QMainWindow):
         group = QGroupBox("⚡ ACCIONES")
         group_layout = QHBoxLayout()
         
+        self.btn_enviar_slack = self.factory.create_button("📤 Enviar a Slack")
+        group_layout.addWidget(self.btn_enviar_slack)
+        
         self.btn_generar = self.factory.create_button("🚀 Generar Texto")
         group_layout.addWidget(self.btn_generar)
         
@@ -619,6 +844,7 @@ class MainWindow(QMainWindow):
         self.btn_generar.clicked.connect(self._on_generar_texto)
         self.btn_copiar.clicked.connect(self._on_copiar_texto)
         self.btn_limpiar.clicked.connect(self._on_limpiar_formulario)
+        self.btn_enviar_slack.clicked.connect(self._on_enviar_a_slack_desde_acciones)
         
         # Conectar campos de texto
         self.entry_titulo.textChanged.connect(self._on_titulo_changed)
@@ -736,6 +962,17 @@ class MainWindow(QMainWindow):
     def _on_jira_changed(self, text: str):
         """Maneja cambios en el link de Jira"""
         self.controller.actualizar_jira(text)
+
+    def _on_enviar_a_slack_desde_acciones(self):
+        # Llama al método del SlackPanel para enviar el reporte usando la configuración y canal seleccionados
+        resultado, mensaje = self.slack_panel.enviar_reporte_desde_main()
+        if resultado:
+            QMessageBox.information(self, "Slack", f"✅ {mensaje}")
+        else:
+            QMessageBox.warning(self, "Slack", f"❌ {mensaje}")
+
+    def _get_tarea_actual(self):
+        return self.controller.tarea
 
 # ============================================================================
 # APPLICATION ENTRY POINT
