@@ -2,11 +2,18 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                            QTextEdit, QListWidget, QScrollArea, QFrame,
-                           QMessageBox, QGroupBox, QGridLayout, QSizePolicy)
+                           QMessageBox, QGroupBox, QGridLayout, QSizePolicy,
+                           QTabWidget)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QClipboard
 from controllers import TareaQAController
 from styles import DarkTheme
+try:
+    from github_widget import GitHubWidget
+    GITHUB_AVAILABLE = True
+except ImportError:
+    GITHUB_AVAILABLE = False
+    print("⚠️ GitHub widget no disponible - asegúrate de tener PyGithub instalado")
 
 class QAGenerator(QMainWindow):
     def __init__(self):
@@ -25,8 +32,30 @@ class QAGenerator(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Layout principal con scroll
+        # Layout principal
         main_layout = QVBoxLayout(central_widget)
+        
+        # Crear sistema de pestañas
+        self.tab_widget = QTabWidget()
+        
+        # Pestaña del generador QA
+        self.create_qa_tab()
+        
+        # Pestaña del chatbot RFlex
+        self.create_rflex_chatbot_tab()
+        
+        # Pestaña de GitHub (si está disponible)
+        if GITHUB_AVAILABLE:
+            self.create_github_tab()
+        
+        main_layout.addWidget(self.tab_widget)
+        
+    def create_qa_tab(self):
+        """Crea la pestaña del generador QA"""
+        qa_tab = QWidget()
+        
+        # Layout principal con scroll para la pestaña QA
+        qa_layout = QVBoxLayout(qa_tab)
         
         # Crear área de scroll
         scroll_area = QScrollArea()
@@ -57,7 +86,88 @@ class QAGenerator(QMainWindow):
         
         # Configurar scroll
         scroll_area.setWidget(scroll_widget)
-        main_layout.addWidget(scroll_area)
+        qa_layout.addWidget(scroll_area)
+        
+        # Agregar pestaña al tab widget
+        self.tab_widget.addTab(qa_tab, "📋 Generador QA")
+        
+    def create_rflex_chatbot_tab(self):
+        """Crea la pestaña del chatbot RFlex"""
+        chatbot_tab = QWidget()
+        chatbot_layout = QVBoxLayout(chatbot_tab)
+        chatbot_layout.setSpacing(30)
+        chatbot_layout.setContentsMargins(50, 50, 50, 50)
+        
+        # Título de la pestaña
+        chatbot_title = QLabel("🤖 CHATBOT RFLEX")
+        chatbot_title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
+        chatbot_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        chatbot_title.setStyleSheet(DarkTheme.get_title_label_style())
+        chatbot_layout.addWidget(chatbot_title)
+        
+        # Mensaje de desarrollo
+        dev_message = QLabel("🚧 EN DESARROLLO 🚧")
+        dev_message.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        dev_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dev_message.setStyleSheet("""
+            QLabel {
+                color: #ff6b6b;
+                background-color: #2c2c2c;
+                border: 2px dashed #ff6b6b;
+                border-radius: 10px;
+                padding: 20px;
+                margin: 20px;
+            }
+        """)
+        chatbot_layout.addWidget(dev_message)
+        
+        # Descripción
+        description = QLabel("""
+        Esta funcionalidad estará disponible próximamente.
+        
+        El chatbot RFlex te permitirá:
+        • 💬 Chatear con IA especializada en QA
+        • 🔍 Analizar código y documentación
+        • 📝 Generar casos de prueba automáticamente
+        • 🚀 Optimizar procesos de testing
+        """)
+        description.setFont(QFont("Arial", 12))
+        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        description.setStyleSheet("""
+            QLabel {
+                color: #b8b8b8;
+                background-color: #3c3c3c;
+                border-radius: 8px;
+                padding: 20px;
+                line-height: 1.6;
+            }
+        """)
+        chatbot_layout.addWidget(description)
+        
+        # Espacio flexible
+        chatbot_layout.addStretch()
+        
+        # Agregar pestaña al tab widget
+        self.tab_widget.addTab(chatbot_tab, "🤖 Chat RFlex")
+        
+    def create_github_tab(self):
+        """Crea la pestaña de GitHub"""
+        github_tab = QWidget()
+        github_layout = QVBoxLayout(github_tab)
+        
+        # Título de la pestaña
+        github_title = QLabel("🐙 INTEGRACIÓN GITHUB")
+        github_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        github_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        github_title.setStyleSheet(DarkTheme.get_title_label_style())
+        github_layout.addWidget(github_title)
+        
+        # Widget de GitHub
+        self.github_widget = GitHubWidget()
+        github_layout.addWidget(self.github_widget)
+        
+        # Agregar pestaña al tab widget
+        self.tab_widget.addTab(github_tab, "🐙 GitHub")
         
     def create_basic_info_section(self, layout):
         """Crea la sección de información básica"""
