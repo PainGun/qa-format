@@ -37,6 +37,8 @@ from generador_qa.src.infrastructure.external.slack_notification_service import 
 from generador_qa.src.application.use_cases.enviar_notificacion_slack import EnviarNotificacionSlackUseCase
 from generador_qa.src.shared.utils import db
 import datetime
+from generador_qa.src.domain.entities.tarea import TareaQA as DomainTareaQA, AmbientePR as DomainAmbientePR, ComentarioQA as DomainComentarioQA
+from generador_qa.src.domain.value_objects.tipos_qa import TipoQA as DomainTipoQA
 
 # ============================================================================
 # DOMAIN LAYER - ENTITIES AND VALUE OBJECTS
@@ -316,6 +318,7 @@ class UIComponentFactory:
         return list_widget
 
 class SlackPanel(QWidget):
+    canales_actualizados = pyqtSignal()
     def __init__(self, parent=None, get_tarea_fn=None):
         super().__init__(parent)
         self.get_tarea_fn = get_tarea_fn  # función para obtener la tarea actual
@@ -376,6 +379,9 @@ class SlackPanel(QWidget):
         enviar_layout.addWidget(self.lbl_envio)
         self.btn_cargar_canales.clicked.connect(self._cargar_canales)
         self.btn_enviar.clicked.connect(self._enviar_a_slack)
+        self.btn_mensaje_prueba = QPushButton('🧪 Mensaje de Prueba')
+        enviar_layout.addWidget(self.btn_mensaje_prueba)
+        self.btn_mensaje_prueba.clicked.connect(self._enviar_mensaje_prueba)
         self.tabs.addTab(tab_enviar, '�� Enviar')
         # --- Tab Historial ---
         tab_hist = QWidget()
@@ -412,6 +418,7 @@ class SlackPanel(QWidget):
             items.append(f"@{u['name']}")
         self.completer.setModel(self.combo_destino.model())
         self.lbl_envio.setText('✅ Canales y usuarios listos')
+        self.canales_actualizados.emit()
 
     def _cargar_canales(self):
         if not self.slack_service:
@@ -486,6 +493,31 @@ class SlackPanel(QWidget):
             db.save_historial_envio(fecha, destino, mensaje, estado, usuario)
             self._load_historial()
             self.lbl_envio.setText(f'✅ Enviado a {destino}')
+        except Exception as e:
+            self.lbl_envio.setText(f'❌ Error: {e}')
+
+    def _enviar_mensaje_prueba(self):
+        if not self.use_case:
+            self.lbl_envio.setText('❌ Slack no está configurado')
+            return
+        idx = self.combo_destino.currentIndex()
+        if idx < 0:
+            self.lbl_envio.setText('❌ Selecciona un canal o usuario')
+            return
+        canal_id = self.combo_destino.currentData()
+        try:
+            resultado = self.use_case.execute('🧪 Mensaje de prueba desde Generador QA', canal_id)
+            estado = 'Éxito' if resultado else 'Error'
+            fecha = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+            usuario = self.usuario_input.text().strip() or 'desconocido'
+            mensaje = '🧪 Mensaje de prueba desde Generador QA'
+            destino = self.combo_destino.currentText()
+            db.save_historial_envio(fecha, destino, mensaje, estado, usuario)
+            self._load_historial()
+            if resultado:
+                self.lbl_envio.setText(f'✅ Mensaje de prueba enviado a {destino}')
+            else:
+                self.lbl_envio.setText(f'❌ Error al enviar mensaje de prueba a {destino}')
         except Exception as e:
             self.lbl_envio.setText(f'❌ Error: {e}')
 
@@ -596,6 +628,8 @@ class MainWindow(QMainWindow):
         # --- Integrar SlackPanel ---
         self.slack_panel = SlackPanel(get_tarea_fn=self._get_tarea_actual)
         self.tabs.addTab(self.slack_panel, '🔗 Slack')
+        self.slack_panel.canales_actualizados.connect(self.sincronizar_destinos_slack)
+        self.sincronizar_destinos_slack()  # inicial
 
     def _create_sections(self, layout: QVBoxLayout):
         """Crea todas las secciones de la aplicación"""
@@ -788,25 +822,29 @@ class MainWindow(QMainWindow):
         layout.addWidget(group)
     
     def _create_actions_section(self, layout: QVBoxLayout):
-        """Crea la sección de botones de acción"""
         group = QGroupBox("⚡ ACCIONES")
         group_layout = QHBoxLayout()
-        
+        # Selector de canal/usuario Slack
+        self.combo_destino_main = QComboBox()
+        self.combo_destino_main.setEditable(True)
+        self.combo_destino_main.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.combo_destino_main.setMaxVisibleItems(15)
+        self.completer_main = QCompleter()
+        self.combo_destino_main.setCompleter(self.completer_main)
+        group_layout.addWidget(QLabel('Destino Slack:'))
+        group_layout.addWidget(self.combo_destino_main)
         self.btn_enviar_slack = self.factory.create_button("📤 Enviar a Slack")
+        self.btn_enviar_slack.setEnabled(False)
         group_layout.addWidget(self.btn_enviar_slack)
-        
         self.btn_generar = self.factory.create_button("🚀 Generar Texto")
         group_layout.addWidget(self.btn_generar)
-        
         self.btn_copiar = self.factory.create_button("📋 Copiar al Portapapeles")
         group_layout.addWidget(self.btn_copiar)
-        
         self.btn_limpiar = self.factory.create_button("🧹 Limpiar Todo", "clearBtn")
         group_layout.addWidget(self.btn_limpiar)
-        
         group.setLayout(group_layout)
         layout.addWidget(group)
-    
+
     def _create_result_section(self, layout: QVBoxLayout):
         """Crea la sección de resultado"""
         group = QGroupBox("📄 RESULTADO GENERADO")
@@ -845,6 +883,7 @@ class MainWindow(QMainWindow):
         self.btn_copiar.clicked.connect(self._on_copiar_texto)
         self.btn_limpiar.clicked.connect(self._on_limpiar_formulario)
         self.btn_enviar_slack.clicked.connect(self._on_enviar_a_slack_desde_acciones)
+        self.combo_destino_main.currentIndexChanged.connect(self._habilitar_envio_si_listo)
         
         # Conectar campos de texto
         self.entry_titulo.textChanged.connect(self._on_titulo_changed)
@@ -963,16 +1002,72 @@ class MainWindow(QMainWindow):
         """Maneja cambios en el link de Jira"""
         self.controller.actualizar_jira(text)
 
-    def _on_enviar_a_slack_desde_acciones(self):
-        # Llama al método del SlackPanel para enviar el reporte usando la configuración y canal seleccionados
-        resultado, mensaje = self.slack_panel.enviar_reporte_desde_main()
-        if resultado:
-            QMessageBox.information(self, "Slack", f"✅ {mensaje}")
+    def _habilitar_envio_si_listo(self):
+        # Habilita el botón solo si hay conexión y destino
+        if self.slack_panel.use_case and self.combo_destino_main.currentIndex() >= 0:
+            self.btn_enviar_slack.setEnabled(True)
         else:
-            QMessageBox.warning(self, "Slack", f"❌ {mensaje}")
+            self.btn_enviar_slack.setEnabled(False)
+
+    def sincronizar_destinos_slack(self):
+        # Llama esto después de cargar canales/usuarios en SlackPanel
+        self.combo_destino_main.clear()
+        items = []
+        for c in self.slack_panel.canales:
+            self.combo_destino_main.addItem(f"#{c['name']}", c['id'])
+            items.append(f"#{c['name']}")
+        for u in self.slack_panel.usuarios:
+            self.combo_destino_main.addItem(f"@{u['name']}", u['id'])
+            items.append(f"@{u['name']}")
+        self.completer_main.setModel(self.combo_destino_main.model())
+        self._habilitar_envio_si_listo()
+
+    def _on_enviar_a_slack_desde_acciones(self):
+        # Usar el destino seleccionado en la pestaña principal
+        if not self.slack_panel.use_case:
+            QMessageBox.warning(self, "Slack", "❌ Slack no está configurado. Ve a la pestaña Slack.")
+            return
+        idx = self.combo_destino_main.currentIndex()
+        if idx < 0:
+            QMessageBox.warning(self, "Slack", "❌ Selecciona un canal o usuario.")
+            return
+        canal_id = self.combo_destino_main.currentData()
+        tarea = self._get_tarea_actual_dominio()
+        if not tarea:
+            QMessageBox.warning(self, "Slack", "❌ No hay tarea para enviar.")
+            return
+        try:
+            resultado = self.slack_panel.use_case.enviar_reporte_qa(tarea, canal_id)
+            estado = 'Éxito' if resultado else 'Error'
+            fecha = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+            usuario = self.slack_panel.usuario_input.text().strip() or 'desconocido'
+            mensaje = formatear_tarea_qa_para_historial(tarea)
+            destino = self.combo_destino_main.currentText()
+            db.save_historial_envio(fecha, destino, mensaje, estado, usuario)
+            self.slack_panel._load_historial()
+            if resultado:
+                QMessageBox.information(self, "Slack", f"✅ Enviado a {destino}")
+            else:
+                QMessageBox.warning(self, "Slack", f"❌ Error al enviar a {destino}")
+        except Exception as e:
+            QMessageBox.warning(self, "Slack", f"❌ Error: {e}")
 
     def _get_tarea_actual(self):
         return self.controller.tarea
+
+    def _get_tarea_actual_dominio(self):
+        # Convierte el modelo local a la entidad de dominio
+        tarea = self.controller.tarea
+        ambientes = [DomainAmbientePR(a.ambiente, a.pr) for a in tarea.ambientes_prs]
+        comentarios = [DomainComentarioQA(DomainTipoQA.from_string(c.tipo), c.link, c.ambiente, c.instruccion) for c in tarea.comentarios]
+        return DomainTareaQA(
+            titulo=tarea.titulo,
+            jira=tarea.jira,
+            ambientes_prs=ambientes,
+            comentarios=comentarios,
+            qa_usabilidad=list(tarea.qa_usabilidad),
+            qa_codigo=list(tarea.qa_codigo)
+        )
 
 # ============================================================================
 # APPLICATION ENTRY POINT
@@ -1008,6 +1103,27 @@ class QAGeneratorApp:
         """Limpia recursos de la aplicación"""
         if self.app:
             self.app.quit()
+
+def formatear_tarea_qa_para_historial(tarea):
+    ambientes_prs_text = "\n".join(f"- {item}" for item in tarea.ambientes_prs)
+    comentarios_text = "\n\n".join(str(comentario) for comentario in tarea.comentarios)
+    qa_usu_text = "\n".join(f"- {item}" for item in tarea.qa_usabilidad)
+    qa_cod_text = "\n".join(f"- {item}" for item in tarea.qa_codigo)
+    return f"""*Tarea:* {tarea.titulo}
+*Jira:* {tarea.jira}
+
+*Ambientes + PRs:*
+{ambientes_prs_text if ambientes_prs_text else '- Sin registros agregados'}
+
+*Comentarios:*
+{comentarios_text if comentarios_text else '- Sin comentarios agregados'}
+
+*Responsables:*
+*QA Usabilidad:*
+{qa_usu_text if qa_usu_text else '- Ninguno'}
+*QA Código:*
+{qa_cod_text if qa_cod_text else '- Ninguno'}
+"""
 
 def main():
     """Función principal de la aplicación"""
