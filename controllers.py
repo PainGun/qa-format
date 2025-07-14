@@ -1,6 +1,5 @@
 from models import TareaQA, AmbientePR, ComentarioQA
-import tkinter as tk
-from tkinter import messagebox
+from PyQt6.QtWidgets import QApplication
 
 class TareaQAController:
     """Controlador principal para manejar la lógica de negocio"""
@@ -78,18 +77,53 @@ class TareaQAController:
         """Genera el texto formateado de la tarea"""
         return self.tarea.generar_texto()
     
-    def copiar_al_portapapeles(self, texto: str):
-        """Copia texto al portapapeles"""
+    def copiar_al_portapapeles(self, texto: str) -> bool:
+        """Copia texto al portapapeles usando PyQt6"""
         try:
-            root = tk.Tk()
-            root.withdraw()  # Ocultar la ventana
-            root.clipboard_clear()
-            root.clipboard_append(texto)
-            root.destroy()
-            messagebox.showinfo("Copiado", "Texto copiado al portapapeles.")
+            clipboard = QApplication.clipboard()
+            clipboard.setText(texto)
+            return True
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo copiar al portapapeles: {e}")
+            print(f"Error al copiar al portapapeles: {e}")
+            return False
     
     def limpiar_datos(self):
         """Limpia todos los datos de la tarea"""
         self.tarea = TareaQA() 
+    
+    def formatear_ambiente_pr_para_ui(self, ambiente: str, pr: str) -> str:
+        """Formatea ambiente y PR para mostrar en la UI"""
+        return f"Ambiente: {ambiente} - PR: {pr}"
+    
+    def formatear_comentario_para_ui(self, tipo: str, link: str, ambiente: str, instruccion: str) -> str:
+        """Formatea comentario para mostrar en la UI"""
+        return f"Para {tipo} (Ambiente: {ambiente}):\nPrueba en {link}\nInstrucción:\n{instruccion}"
+    
+    def obtener_ambiente_pr_por_indice(self, index: int) -> str:
+        """Obtiene el ambiente y PR formateado por índice para la UI"""
+        if 0 <= index < len(self.tarea.ambientes_prs):
+            item = self.tarea.ambientes_prs[index]
+            return self.formatear_ambiente_pr_para_ui(item.ambiente, item.pr)
+        return ""
+    
+    def obtener_comentario_por_indice(self, index: int) -> str:
+        """Obtiene el comentario formateado por índice para la UI"""
+        if 0 <= index < len(self.tarea.comentarios):
+            comentario = self.tarea.comentarios[index]
+            return self.formatear_comentario_para_ui(
+                comentario.tipo, comentario.link, 
+                comentario.ambiente, comentario.instruccion
+            )
+        return ""
+    
+    def obtener_todas_las_listas_para_ui(self):
+        """Obtiene todas las listas formateadas para sincronizar con la UI"""
+        return {
+            'ambientes_prs': [self.formatear_ambiente_pr_para_ui(item.ambiente, item.pr) 
+                             for item in self.tarea.ambientes_prs],
+            'comentarios': [self.formatear_comentario_para_ui(
+                            item.tipo, item.link, item.ambiente, item.instruccion)
+                           for item in self.tarea.comentarios],
+            'qa_usabilidad': self.tarea.qa_usabilidad.copy(),
+            'qa_codigo': self.tarea.qa_codigo.copy()
+        }
