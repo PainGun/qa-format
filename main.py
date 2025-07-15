@@ -15,6 +15,13 @@ except ImportError:
     GITHUB_AVAILABLE = False
     print("⚠️ GitHub widget no disponible - asegúrate de tener PyGithub instalado")
 
+try:
+    from jira_widget import JiraWidget
+    JIRA_AVAILABLE = True
+except ImportError:
+    JIRA_AVAILABLE = False
+    print("⚠️ Jira widget no disponible - asegúrate de tener jira instalado")
+
 class QAGenerator(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -41,12 +48,16 @@ class QAGenerator(QMainWindow):
         # Pestaña del generador QA
         self.create_qa_tab()
         
-        # Pestaña del chatbot RFlex
-        self.create_rflex_chatbot_tab()
-        
         # Pestaña de GitHub (si está disponible)
         if GITHUB_AVAILABLE:
             self.create_github_tab()
+        
+        # Pestaña de Jira (si está disponible)
+        if JIRA_AVAILABLE:
+            self.create_jira_tab()
+        
+        # Pestaña del chatbot RFlex (al final)
+        self.create_rflex_chatbot_tab()
         
         main_layout.addWidget(self.tab_widget)
         
@@ -169,6 +180,25 @@ class QAGenerator(QMainWindow):
         # Agregar pestaña al tab widget
         self.tab_widget.addTab(github_tab, "🐙 GitHub")
         
+    def create_jira_tab(self):
+        """Crea la pestaña de Jira"""
+        jira_tab = QWidget()
+        jira_layout = QVBoxLayout(jira_tab)
+        
+        # Título de la pestaña
+        jira_title = QLabel("🔧 INTEGRACIÓN JIRA")
+        jira_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        jira_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        jira_title.setStyleSheet(DarkTheme.get_title_label_style())
+        jira_layout.addWidget(jira_title)
+        
+        # Widget de Jira
+        self.jira_widget = JiraWidget()
+        jira_layout.addWidget(self.jira_widget)
+        
+        # Agregar pestaña al tab widget
+        self.tab_widget.addTab(jira_tab, "🔧 Jira")
+
     def create_basic_info_section(self, layout):
         """Crea la sección de información básica"""
         group = QGroupBox("📌 INFORMACIÓN BÁSICA")
