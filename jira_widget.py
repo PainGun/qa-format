@@ -90,7 +90,7 @@ class JiraWidget(QWidget):
         title = QLabel("🔧 Jira Integration")
         title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("color: #f8f8f2; margin-bottom: 10px;")
+        title.setStyleSheet("color: #3D3D3D; margin-bottom: 10px;")
         layout.addWidget(title)
         
         # Instrucciones
@@ -120,7 +120,7 @@ Ejemplo de URL del servidor:
         
         # Campo de servidor
         server_label = QLabel("🌐 URL del Servidor Jira:")
-        server_label.setStyleSheet("color: #f8f8f2; font-weight: bold;")
+        server_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
         layout.addWidget(server_label)
         
         self.server_input = QLineEdit()
@@ -130,7 +130,7 @@ Ejemplo de URL del servidor:
         
         # Campo de usuario
         user_label = QLabel("👤 Email/Usuario:")
-        user_label.setStyleSheet("color: #f8f8f2; font-weight: bold;")
+        user_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
         layout.addWidget(user_label)
         
         self.user_input = QLineEdit()
@@ -140,7 +140,7 @@ Ejemplo de URL del servidor:
         
         # Campo de token
         token_label = QLabel("🔑 API Token:")
-        token_label.setStyleSheet("color: #f8f8f2; font-weight: bold;")
+        token_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
         layout.addWidget(token_label)
         
         self.token_input = QLineEdit()
@@ -186,7 +186,7 @@ Ejemplo de URL del servidor:
         title = QLabel("🔧 Tareas de Jira")
         title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("color: #f8f8f2; margin-bottom: 10px;")
+        title.setStyleSheet("color: #3D3D3D; margin-bottom: 10px;")
         layout.addWidget(title)
         
         # Sistema de pestañas
@@ -259,7 +259,7 @@ Ejemplo de URL del servidor:
         
         # Selector de proyecto
         project_label = QLabel("📁 Selecciona un proyecto:")
-        project_label.setStyleSheet("color: #f8f8f2; font-weight: bold;")
+        project_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
         layout.addWidget(project_label)
         
         self.project_combo = QComboBox()
@@ -293,7 +293,7 @@ Ejemplo de URL del servidor:
         
         # Campo de búsqueda JQL
         search_label = QLabel("🔍 Búsqueda JQL:")
-        search_label.setStyleSheet("color: #f8f8f2; font-weight: bold;")
+        search_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
         layout.addWidget(search_label)
         
         self.search_input = QLineEdit()

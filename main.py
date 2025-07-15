@@ -32,6 +32,9 @@ class QAGenerator(QMainWindow):
         # Inicializar el controlador MVC
         self.controller = TareaQAController()
         
+        # Lista de widgets para manejo de cierre
+        self.widgets_with_threads = []
+        
         # Aplicar tema oscuro
         self.setStyleSheet(DarkTheme.get_main_stylesheet())
         
@@ -50,11 +53,13 @@ class QAGenerator(QMainWindow):
         
         # Pestaña de GitHub (si está disponible)
         if GITHUB_AVAILABLE:
-            self.create_github_tab()
+            self.github_widget = self.create_github_tab()
+            self.widgets_with_threads.append(self.github_widget)
         
         # Pestaña de Jira (si está disponible)
         if JIRA_AVAILABLE:
-            self.create_jira_tab()
+            self.jira_widget = self.create_jira_tab()
+            self.widgets_with_threads.append(self.jira_widget)
         
         # Pestaña del chatbot RFlex (al final)
         self.create_rflex_chatbot_tab()
@@ -84,7 +89,7 @@ class QAGenerator(QMainWindow):
         title_label = QLabel("📋 FORMULARIO DE QA")
         title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet(DarkTheme.get_title_label_style())
+        title_label.setStyleSheet("color: #3D3D3D; background-color: #F5F7FA; padding: 15px; border-radius: 8px; border: 2px solid #616DB3; margin: 10px;")
         scroll_layout.addWidget(title_label)
         
         # Crear secciones
@@ -113,7 +118,7 @@ class QAGenerator(QMainWindow):
         chatbot_title = QLabel("🤖 CHATBOT RFLEX")
         chatbot_title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
         chatbot_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        chatbot_title.setStyleSheet(DarkTheme.get_title_label_style())
+        chatbot_title.setStyleSheet("color: #3D3D3D; background-color: #F5F7FA; padding: 15px; border-radius: 8px; border: 2px solid #616DB3; margin: 10px;")
         chatbot_layout.addWidget(chatbot_title)
         
         # Mensaje de desarrollo
@@ -171,15 +176,17 @@ class QAGenerator(QMainWindow):
         github_title = QLabel("🐙 INTEGRACIÓN GITHUB")
         github_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         github_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        github_title.setStyleSheet(DarkTheme.get_title_label_style())
+        github_title.setStyleSheet("color: #3D3D3D; background-color: #F5F7FA; padding: 15px; border-radius: 8px; border: 2px solid #616DB3; margin: 10px;")
         github_layout.addWidget(github_title)
         
         # Widget de GitHub
-        self.github_widget = GitHubWidget()
-        github_layout.addWidget(self.github_widget)
+        github_widget = GitHubWidget()
+        github_layout.addWidget(github_widget)
         
         # Agregar pestaña al tab widget
         self.tab_widget.addTab(github_tab, "🐙 GitHub")
+        
+        return github_widget
         
     def create_jira_tab(self):
         """Crea la pestaña de Jira"""
@@ -190,15 +197,17 @@ class QAGenerator(QMainWindow):
         jira_title = QLabel("🔧 INTEGRACIÓN JIRA")
         jira_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         jira_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        jira_title.setStyleSheet(DarkTheme.get_title_label_style())
+        jira_title.setStyleSheet("color: #3D3D3D; background-color: #F5F7FA; padding: 15px; border-radius: 8px; border: 2px solid #616DB3; margin: 10px;")
         jira_layout.addWidget(jira_title)
         
         # Widget de Jira
-        self.jira_widget = JiraWidget()
-        jira_layout.addWidget(self.jira_widget)
+        jira_widget = JiraWidget()
+        jira_layout.addWidget(jira_widget)
         
         # Agregar pestaña al tab widget
         self.tab_widget.addTab(jira_tab, "🔧 Jira")
+        
+        return jira_widget
 
     def create_basic_info_section(self, layout):
         """Crea la sección de información básica"""
@@ -207,7 +216,9 @@ class QAGenerator(QMainWindow):
         
         # Título de la tarea
         title_layout = QHBoxLayout()
-        title_layout.addWidget(QLabel("📝 Título de la Tarea:"))
+        titulo_label = QLabel("📝 Título de la Tarea:")
+        titulo_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        title_layout.addWidget(titulo_label)
         self.entry_titulo = QLineEdit()
         self.entry_titulo.setPlaceholderText("Ingrese el título de la tarea")
         title_layout.addWidget(self.entry_titulo)
@@ -215,7 +226,9 @@ class QAGenerator(QMainWindow):
         
         # Jira
         jira_layout = QHBoxLayout()
-        jira_layout.addWidget(QLabel("🔗 Link Jira:"))
+        jira_label = QLabel("🔗 Link Jira:")
+        jira_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        jira_layout.addWidget(jira_label)
         self.entry_jira = QLineEdit()
         self.entry_jira.setPlaceholderText("https://jira.empresa.com/...")
         jira_layout.addWidget(self.entry_jira)
@@ -234,7 +247,9 @@ class QAGenerator(QMainWindow):
         
         # Ambiente
         ambiente_layout = QVBoxLayout()
-        ambiente_layout.addWidget(QLabel("🏢 Ambiente:"))
+        ambiente_label = QLabel("🏢 Ambiente:")
+        ambiente_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        ambiente_layout.addWidget(ambiente_label)
         self.entry_ambiente = QLineEdit()
         self.entry_ambiente.setPlaceholderText("dev, staging, prod...")
         ambiente_layout.addWidget(self.entry_ambiente)
@@ -242,7 +257,9 @@ class QAGenerator(QMainWindow):
         
         # PR
         pr_layout = QVBoxLayout()
-        pr_layout.addWidget(QLabel("🔄 PR:"))
+        pr_label = QLabel("🔄 PR:")
+        pr_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        pr_layout.addWidget(pr_label)
         self.entry_pr = QLineEdit()
         self.entry_pr.setPlaceholderText("Número o link del PR")
         pr_layout.addWidget(self.entry_pr)
@@ -279,14 +296,18 @@ class QAGenerator(QMainWindow):
         fila1_layout = QHBoxLayout()
         
         tipo_layout = QVBoxLayout()
-        tipo_layout.addWidget(QLabel("🔍 Tipo QA:"))
+        tipo_label = QLabel("🔍 Tipo QA:")
+        tipo_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        tipo_layout.addWidget(tipo_label)
         self.entry_tipo_qa = QLineEdit()
         self.entry_tipo_qa.setPlaceholderText("Usabilidad / Código")
         tipo_layout.addWidget(self.entry_tipo_qa)
         fila1_layout.addLayout(tipo_layout)
         
         link_layout = QVBoxLayout()
-        link_layout.addWidget(QLabel("🔗 Link para prueba:"))
+        link_label = QLabel("🔗 Link para prueba:")
+        link_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        link_layout.addWidget(link_label)
         self.entry_link_qa = QLineEdit()
         self.entry_link_qa.setPlaceholderText("URL de la aplicación")
         link_layout.addWidget(self.entry_link_qa)
@@ -296,7 +317,9 @@ class QAGenerator(QMainWindow):
         
         # Segunda fila
         ambiente_layout = QVBoxLayout()
-        ambiente_layout.addWidget(QLabel("🌐 Ambiente de prueba:"))
+        ambiente_qa_label = QLabel("🌐 Ambiente de prueba:")
+        ambiente_qa_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        ambiente_layout.addWidget(ambiente_qa_label)
         self.entry_ambiente_qa = QLineEdit()
         self.entry_ambiente_qa.setPlaceholderText("Ambiente donde probar")
         ambiente_layout.addWidget(self.entry_ambiente_qa)
@@ -304,7 +327,9 @@ class QAGenerator(QMainWindow):
         
         # Instrucciones
         instr_layout = QVBoxLayout()
-        instr_layout.addWidget(QLabel("📝 Instrucciones:"))
+        instr_label = QLabel("📝 Instrucciones:")
+        instr_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        instr_layout.addWidget(instr_label)
         self.txt_instruccion = QTextEdit()
         self.txt_instruccion.setPlaceholderText("Pasos detallados para realizar la prueba...")
         self.txt_instruccion.setMaximumHeight(80)
@@ -339,7 +364,9 @@ class QAGenerator(QMainWindow):
         
         # QA Usabilidad
         usu_layout = QVBoxLayout()
-        usu_layout.addWidget(QLabel("🎨 QA Usabilidad:"))
+        usu_label = QLabel("🎨 QA Usabilidad:")
+        usu_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        usu_layout.addWidget(usu_label)
         
         usu_input_layout = QHBoxLayout()
         self.entry_qa_usu = QLineEdit()
@@ -367,7 +394,9 @@ class QAGenerator(QMainWindow):
         
         # QA Código
         cod_layout = QVBoxLayout()
-        cod_layout.addWidget(QLabel("💻 QA Código:"))
+        cod_label = QLabel("💻 QA Código:")
+        cod_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        cod_layout.addWidget(cod_label)
         
         cod_input_layout = QHBoxLayout()
         self.entry_qa_cod = QLineEdit()
@@ -561,6 +590,25 @@ class QAGenerator(QMainWindow):
             
         for item in listas['qa_codigo']:
             self.lista_qa_cod.addItem(item)
+
+    def cleanup_threads(self):
+        """Limpia todos los threads activos antes del cierre"""
+        print("🧹 Limpiando threads...")
+        
+        # Limpiar threads de widgets específicos
+        for widget in self.widgets_with_threads:
+            if hasattr(widget, 'cleanup_threads'):
+                print(f"🧽 Limpiando threads de {widget.__class__.__name__}")
+                widget.cleanup_threads()
+        
+        print("✅ Threads limpiados")
+    
+    def closeEvent(self, event):
+        """Maneja el evento de cierre de la aplicación"""
+        print("🚪 Cerrando aplicación...")
+        self.cleanup_threads()
+        super().closeEvent(event)
+        print("👋 Aplicación cerrada correctamente")
 
 def main():
     app = QApplication(sys.argv)
