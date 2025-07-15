@@ -221,3 +221,123 @@ class JiraService:
         self.server_url = None
         self.username = None
         self.is_connected = False
+    
+    def get_issue_transitions(self, issue_key: str) -> List[Dict]:
+        """
+        Obtiene las transiciones disponibles para un issue
+        
+        Args:
+            issue_key: Clave del issue (ej: PROJ-123)
+            
+        Returns:
+            List[Dict]: Lista de transiciones disponibles
+        """
+        if not self.is_connected:
+            raise Exception("No conectado a Jira")
+        
+        try:
+            issue = self.jira.issue(issue_key)
+            transitions = self.jira.transitions(issue)
+            
+            result = []
+            for transition in transitions:
+                transition_data = {
+                    'id': transition['id'],
+                    'name': transition['name'],
+                    'to_status': transition['to']['name']
+                }
+                result.append(transition_data)
+                
+            return result
+            
+        except Exception as e:
+            raise Exception(f"Error obteniendo transiciones: {e}")
+    
+    def transition_issue(self, issue_key: str, transition_id: str, comment: str = None) -> bool:
+        """
+        Realiza una transición de estado en un issue
+        
+        Args:
+            issue_key: Clave del issue (ej: PROJ-123)
+            transition_id: ID de la transición a realizar
+            comment: Comentario opcional para la transición
+            
+        Returns:
+            bool: True si la transición fue exitosa
+        """
+        if not self.is_connected:
+            raise Exception("No conectado a Jira")
+        
+        try:
+            issue = self.jira.issue(issue_key)
+            
+            # Preparar datos de la transición
+            transition_data = {}
+            
+            # Agregar comentario si se proporciona
+            if comment:
+                transition_data['comment'] = [{'body': comment}]
+            
+            # Realizar la transición
+            self.jira.transition_issue(issue, transition_id, **transition_data)
+            return True
+            
+        except Exception as e:
+            raise Exception(f"Error realizando transición: {e}")
+    
+    def add_comment_to_issue(self, issue_key: str, comment: str) -> bool:
+        """
+        Agrega un comentario a un issue
+        
+        Args:
+            issue_key: Clave del issue
+            comment: Texto del comentario
+            
+        Returns:
+            bool: True si el comentario fue agregado exitosamente
+        """
+        if not self.is_connected:
+            raise Exception("No conectado a Jira")
+        
+        try:
+            issue = self.jira.issue(issue_key)
+            self.jira.add_comment(issue, comment)
+            return True
+            
+        except Exception as e:
+            raise Exception(f"Error agregando comentario: {e}")
+    
+    def update_issue_status_by_name(self, issue_key: str, target_status: str, comment: str = None) -> bool:
+        """
+        Cambia el estado de un issue usando el nombre del estado
+        
+        Args:
+            issue_key: Clave del issue
+            target_status: Nombre del estado objetivo (ej: "Done", "In Progress")
+            comment: Comentario opcional
+            
+        Returns:
+            bool: True si el cambio fue exitoso
+        """
+        if not self.is_connected:
+            raise Exception("No conectado a Jira")
+        
+        try:
+            # Obtener transiciones disponibles
+            transitions = self.get_issue_transitions(issue_key)
+            
+            # Buscar la transición que lleva al estado objetivo
+            target_transition = None
+            for transition in transitions:
+                if transition['to_status'].lower() == target_status.lower():
+                    target_transition = transition
+                    break
+            
+            if not target_transition:
+                raise Exception(f"No se encontró transición al estado '{target_status}'. Estados disponibles: {[t['to_status'] for t in transitions]}")
+            
+            # Realizar la transición
+            return self.transition_issue(issue_key, target_transition['id'], comment)
+            
+        except Exception as e:
+            raise Exception(f"Error cambiando estado: {e}")

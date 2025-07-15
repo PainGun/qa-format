@@ -6,10 +6,11 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                            QLineEdit, QPushButton, QListWidget, QTextEdit,
                            QMessageBox, QFrame, QScrollArea, QListWidgetItem,
                            QTabWidget, QComboBox, QSplitter, QTreeWidget,
-                           QTreeWidgetItem, QProgressBar)
+                           QTreeWidgetItem, QProgressBar, QMenu)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QAction
 from jira_service import JiraService
+from jira_status_dialog import JiraStatusDialog
 from styles import DarkTheme
 
 class JiraWorker(QThread):
@@ -230,6 +231,8 @@ Ejemplo de URL del servidor:
         self.my_issues_list = QListWidget()
         self.my_issues_list.setStyleSheet(DarkTheme.get_listwidget_style())
         self.my_issues_list.itemClicked.connect(self.on_issue_selected)
+        self.my_issues_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.my_issues_list.customContextMenuRequested.connect(self.show_issue_context_menu)
         layout.addWidget(self.my_issues_list)
         
         # Área de detalles del issue
@@ -268,6 +271,8 @@ Ejemplo de URL del servidor:
         self.project_issues_list = QListWidget()
         self.project_issues_list.setStyleSheet(DarkTheme.get_listwidget_style())
         self.project_issues_list.itemClicked.connect(self.on_project_issue_selected)
+        self.project_issues_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.project_issues_list.customContextMenuRequested.connect(self.show_project_issue_context_menu)
         layout.addWidget(self.project_issues_list)
         
         # Área de detalles del issue del proyecto
@@ -593,3 +598,160 @@ Ejemplo de URL del servidor:
         
         QMessageBox.information(self, "🚪 Desconectado", 
                               "Te has desconectado de Jira exitosamente.")
+    
+    def show_issue_context_menu(self, position):
+        """Muestra el menú contextual para los issues asignados"""
+        item = self.my_issues_list.itemAt(position)
+        if not item:
+            return
+            
+        issue_data = item.data(Qt.ItemDataRole.UserRole)
+        if not issue_data:
+            return
+        
+        menu = QMenu(self)
+        menu.setStyleSheet(DarkTheme.get_frame_style())
+        
+        # Acción para cambiar estado
+        change_status_action = QAction("🔄 Cambiar Estado", self)
+        change_status_action.triggered.connect(lambda: self.change_issue_status(issue_data))
+        menu.addAction(change_status_action)
+        
+        # Acción para abrir en navegador
+        open_action = QAction("🌐 Abrir en Jira", self)
+        open_action.triggered.connect(lambda: self.open_issue_in_browser(issue_data))
+        menu.addAction(open_action)
+        
+        # Acción para copiar URL
+        copy_url_action = QAction("📋 Copiar URL", self)
+        copy_url_action.triggered.connect(lambda: self.copy_issue_url(issue_data))
+        menu.addAction(copy_url_action)
+        
+        # Acción para refrescar
+        menu.addSeparator()
+        refresh_action = QAction("🔄 Refrescar", self)
+        refresh_action.triggered.connect(self.load_my_issues)
+        menu.addAction(refresh_action)
+        
+        menu.exec(self.my_issues_list.mapToGlobal(position))
+    
+    def show_project_issue_context_menu(self, position):
+        """Muestra el menú contextual para los issues de proyecto"""
+        item = self.project_issues_list.itemAt(position)
+        if not item:
+            return
+            
+        issue_data = item.data(Qt.ItemDataRole.UserRole)
+        if not issue_data:
+            return
+        
+        menu = QMenu(self)
+        menu.setStyleSheet(DarkTheme.get_frame_style())
+        
+        # Acción para cambiar estado
+        change_status_action = QAction("🔄 Cambiar Estado", self)
+        change_status_action.triggered.connect(lambda: self.change_issue_status(issue_data))
+        menu.addAction(change_status_action)
+        
+        # Acción para abrir en navegador
+        open_action = QAction("🌐 Abrir en Jira", self)
+        open_action.triggered.connect(lambda: self.open_issue_in_browser(issue_data))
+        menu.addAction(open_action)
+        
+        # Acción para copiar URL
+        copy_url_action = QAction("📋 Copiar URL", self)
+        copy_url_action.triggered.connect(lambda: self.copy_issue_url(issue_data))
+        menu.addAction(copy_url_action)
+        
+        menu.exec(self.project_issues_list.mapToGlobal(position))
+    
+    def change_issue_status(self, issue_data):
+        """Abre el diálogo para cambiar el estado del issue"""
+        try:
+            dialog = JiraStatusDialog(self, self.jira_service, issue_data)
+            dialog.status_changed.connect(self.on_issue_status_changed)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error abriendo diálogo de estado:\n{str(e)}")
+    
+    def on_issue_status_changed(self, issue_key, new_status):
+        """Maneja el cambio de estado exitoso"""
+        # Actualizar el estado en las listas
+        self.update_issue_status_in_lists(issue_key, new_status)
+        
+        # Recargar las listas para obtener datos actualizados
+        self.load_my_issues()
+        
+        # Si hay un proyecto seleccionado, recargar también
+        current_project = self.projects_combo.currentText()
+        if current_project and not current_project.startswith(("Selecciona", "🔄", "📭", "❌")):
+            project_data = self.projects_combo.itemData(self.projects_combo.currentIndex())
+            if project_data:
+                self.load_project_issues(project_data['key'])
+    
+    def update_issue_status_in_lists(self, issue_key, new_status):
+        """Actualiza el estado del issue en las listas sin recargar"""
+        # Actualizar en my_issues_list
+        for i in range(self.my_issues_list.count()):
+            item = self.my_issues_list.item(i)
+            issue_data = item.data(Qt.ItemDataRole.UserRole)
+            if issue_data and issue_data['key'] == issue_key:
+                issue_data['status'] = new_status
+                # Actualizar el texto del item
+                priority_icon = self.get_priority_icon(issue_data.get('priority', ''))
+                status_icon = self.get_status_icon(new_status)
+                item_text = f"{priority_icon} {issue_data['key']} - {issue_data['summary']}\n🏷️ {new_status} | 📋 {issue_data['issue_type']}"
+                item.setText(item_text)
+                break
+        
+        # Actualizar en project_issues_list
+        for i in range(self.project_issues_list.count()):
+            item = self.project_issues_list.item(i)
+            issue_data = item.data(Qt.ItemDataRole.UserRole)
+            if issue_data and issue_data['key'] == issue_key:
+                issue_data['status'] = new_status
+                # Actualizar el texto del item
+                status_icon = self.get_status_icon(new_status)
+                assignee = issue_data.get('assignee', 'Sin asignar')
+                item_text = f"{status_icon} {issue_data['key']} - {issue_data['summary']}\n👤 {assignee} | 🏷️ {new_status}"
+                item.setText(item_text)
+                break
+    
+    def open_issue_in_browser(self, issue_data):
+        """Abre el issue en el navegador"""
+        import webbrowser
+        try:
+            webbrowser.open(issue_data['url'])
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"No se pudo abrir el navegador:\n{str(e)}")
+    
+    def copy_issue_url(self, issue_data):
+        """Copia la URL del issue al portapapeles"""
+        from PyQt6.QtWidgets import QApplication
+        clipboard = QApplication.clipboard()
+        clipboard.setText(issue_data['url'])
+        QMessageBox.information(self, "Copiado", f"URL del issue {issue_data['key']} copiada al portapapeles")
+    
+    def get_priority_icon(self, priority):
+        """Obtiene el icono según la prioridad"""
+        priority_icons = {
+            'Highest': '🔥',
+            'High': '⚡',
+            'Medium': '📋',
+            'Low': '📝',
+            'Lowest': '💤'
+        }
+        return priority_icons.get(priority, '📋')
+    
+    def get_status_icon(self, status):
+        """Obtiene el icono según el estado"""
+        status_icons = {
+            'To Do': '📝',
+            'In Progress': '🔄',
+            'Done': '✅',
+            'Closed': '🔒',
+            'Open': '📂',
+            'Resolved': '✔️',
+            'Reopened': '🔄'
+        }
+        return status_icons.get(status, '📋')

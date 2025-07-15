@@ -1,25 +1,26 @@
 """
-Estilos CSS para la aplicación PyQt6 - Tema Oscuro
+Estilos CSS para la aplicación PyQt6 - Tema Personalizado
 Archivo separado para mantener los estilos organizados y fáciles de modificar
+Paleta: Fondo blanco, azul principal (#616DB3), azul claro (#A4B3DC), gris oscuro (#3D3D3D), amarillo acento (#FACC53)
 """
 
 class DarkTheme:
-    """Clase que contiene todos los estilos del tema oscuro"""
+    """Clase que contiene todos los estilos del tema personalizado"""
     
-    # Colores del tema oscuro
+    # Paleta de colores personalizada
     COLORS = {
-        'background': '#282a36',        # Fondo principal
-        'current_line': '#44475a',      # Línea actual
-        'selection': '#44475a',         # Selección
-        'foreground': '#f8f8f2',        # Texto principal
-        'comment': '#6272a4',           # Comentarios
-        'cyan': '#8be9fd',              # Cyan
-        'green': '#50fa7b',             # Verde
-        'orange': '#ffb86c',            # Naranja
-        'pink': '#ff79c6',              # Rosa
-        'purple': '#bd93f9',            # Morado
-        'red': '#ff5555',               # Rojo
-        'yellow': '#f1fa8c'             # Amarillo
+        'background': '#FFFFFF',        # Fondo blanco
+        'current_line': '#F5F7FA',      # Línea actual (gris muy claro)
+        'selection': '#A4B3DC',         # Selección (azul claro)
+        'foreground': '#3D3D3D',        # Texto principal (gris oscuro)
+        'comment': '#616DB3',           # Comentarios (azul principal)
+        'cyan': '#616DB3',              # Cyan (azul principal)
+        'green': '#28A745',             # Verde (mantener funcional)
+        'orange': '#FACC53',            # Naranja (amarillo acento)
+        'pink': '#A4B3DC',              # Rosa (azul claro)
+        'purple': '#616DB3',            # Morado (azul principal)
+        'red': '#DC3545',               # Rojo (mantener funcional)
+        'yellow': '#FACC53'             # Amarillo (amarillo acento)
     }
     
     @staticmethod
@@ -27,13 +28,37 @@ class DarkTheme:
         """Retorna el stylesheet principal para la aplicación"""
         return f"""
         QMainWindow {{
-            background-color: {DarkTheme.COLORS['background']};
-            color: {DarkTheme.COLORS['foreground']};
+            background-color: #FFFFFF;
+            color: #3D3D3D;
         }}
         QWidget {{
-            background-color: {DarkTheme.COLORS['background']};
-            color: {DarkTheme.COLORS['foreground']};
+            background-color: #FFFFFF;
+            color: #3D3D3D;
             font-family: 'Arial', sans-serif;
+        }}
+        QFrame {{
+            background-color: #FFFFFF;
+            color: #3D3D3D;
+        }}
+        QTabWidget::pane {{
+            border: 2px solid #616DB3;
+            background-color: #FFFFFF;
+            border-radius: 6px;
+        }}
+        QTabBar::tab {{
+            background-color: #F5F7FA;
+            color: #3D3D3D;
+            padding: 8px 16px;
+            margin: 2px;
+            border-radius: 6px;
+            border: 1px solid #616DB3;
+        }}
+        QTabBar::tab:selected {{
+            background-color: #616DB3;
+            color: #FFFFFF;
+        }}
+        QTabBar::tab:hover {{
+            background-color: #A4B3DC;
         }}
         {DarkTheme.get_groupbox_style()}
         {DarkTheme.get_label_style()}
@@ -52,22 +77,22 @@ class DarkTheme:
         return f"""
         QGroupBox {{
             font-weight: bold;
-            border: 2px solid {DarkTheme.COLORS['current_line']};
+            border: 2px solid #616DB3;
             border-radius: 8px;
             margin-top: 15px;
             padding-top: 15px;
-            background-color: {DarkTheme.COLORS['current_line']};
+            background-color: #F5F7FA;
         }}
         QGroupBox::title {{
             subcontrol-origin: margin;
             left: 10px;
             padding: 8px 15px 8px 15px;
-            color: {DarkTheme.COLORS['foreground']};
+            color: #FFFFFF;
             font-size: 14px;
             font-weight: bold;
-            background-color: {DarkTheme.COLORS['purple']};
+            background-color: #616DB3;
             border-radius: 6px;
-            border: 1px solid #9580e0;
+            border: 1px solid #616DB3;
         }}
         """
     
@@ -76,8 +101,9 @@ class DarkTheme:
         """Estilos para QLabel"""
         return f"""
         QLabel {{
-            color: {DarkTheme.COLORS['foreground']};
+            color: #3D3D3D;
             font-weight: bold;
+            background-color: transparent;
         }}
         """
     
@@ -86,18 +112,19 @@ class DarkTheme:
         """Estilos para QLineEdit (campos de texto)"""
         return f"""
         QLineEdit {{
-            background-color: {DarkTheme.COLORS['comment']};
-            border: 2px solid #565b5e;
+            background-color: #F5F7FA;
+            border: 2px solid #616DB3;
             border-radius: 6px;
             padding: 8px;
-            color: {DarkTheme.COLORS['foreground']};
+            color: #3D3D3D;
             font-size: 12px;
         }}
         QLineEdit:focus {{
-            border-color: {DarkTheme.COLORS['purple']};
+            border-color: #616DB3;
+            background-color: #FFFFFF;
         }}
         QLineEdit::placeholder {{
-            color: {DarkTheme.COLORS['cyan']};
+            color: #616DB3;
         }}
         """
     
@@ -106,38 +133,43 @@ class DarkTheme:
         """Estilos para QPushButton"""
         return f"""
         QPushButton {{
-            background-color: {DarkTheme.COLORS['comment']};
-            border: 2px solid {DarkTheme.COLORS['purple']};
+            background-color: #F5F7FA;
+            border: 2px solid #616DB3;
             border-radius: 8px;
             padding: 12px 18px;
-            color: {DarkTheme.COLORS['foreground']};
+            color: #3D3D3D;
             font-weight: bold;
             font-size: 13px;
             min-height: 20px;
             text-align: center;
         }}
         QPushButton:hover {{
-            background-color: {DarkTheme.COLORS['green']};
-            border-color: #45d668;
-            color: {DarkTheme.COLORS['background']};
+            background-color: #616DB3;
+            border-color: #616DB3;
+            color: #FFFFFF;
         }}
         QPushButton:pressed {{
-            background-color: #45d668;
-            border-color: #3bc95a;
+            background-color: #616DB3;
+            border-color: #616DB3;
+            color: #FFFFFF;
         }}
         QPushButton#deleteBtn {{
-            background-color: {DarkTheme.COLORS['red']};
+            background-color: #DC3545;
             max-width: 40px;
             padding: 8px;
+            color: #FFFFFF;
         }}
         QPushButton#deleteBtn:hover {{
-            background-color: #ff6e6e;
+            background-color: #C82333;
+            color: #FFFFFF;
         }}
         QPushButton#clearBtn {{
-            background-color: {DarkTheme.COLORS['red']};
+            background-color: #DC3545;
+            color: #FFFFFF;
         }}
         QPushButton#clearBtn:hover {{
-            background-color: #ff6e6e;
+            background-color: #C82333;
+            color: #FFFFFF;
         }}
         """
     
@@ -146,15 +178,16 @@ class DarkTheme:
         """Estilos para QTextEdit (áreas de texto)"""
         return f"""
         QTextEdit {{
-            background-color: {DarkTheme.COLORS['current_line']};
-            border: 2px solid #565b5e;
+            background-color: #F5F7FA;
+            border: 2px solid #616DB3;
             border-radius: 6px;
             padding: 8px;
-            color: {DarkTheme.COLORS['foreground']};
+            color: #3D3D3D;
             font-size: 12px;
         }}
         QTextEdit:focus {{
-            border-color: {DarkTheme.COLORS['purple']};
+            border-color: #616DB3;
+            background-color: #FFFFFF;
         }}
         """
     
@@ -163,20 +196,20 @@ class DarkTheme:
         """Estilos para QListWidget (listas)"""
         return f"""
         QListWidget {{
-            background-color: {DarkTheme.COLORS['current_line']};
-            border: 2px solid #565b5e;
+            background-color: #F5F7FA;
+            border: 2px solid #616DB3;
             border-radius: 6px;
-            color: {DarkTheme.COLORS['foreground']};
+            color: #3D3D3D;
             font-size: 11px;
             padding: 5px;
         }}
         QListWidget::item {{
             padding: 5px;
-            border-bottom: 1px solid {DarkTheme.COLORS['comment']};
+            border-bottom: 1px solid #A4B3DC;
         }}
         QListWidget::item:selected {{
-            background-color: {DarkTheme.COLORS['purple']};
-            color: {DarkTheme.COLORS['background']};
+            background-color: #616DB3;
+            color: #FFFFFF;
         }}
         """
     
@@ -185,17 +218,17 @@ class DarkTheme:
         """Estilos para las barras de desplazamiento"""
         return f"""
         QScrollBar:vertical {{
-            background-color: {DarkTheme.COLORS['current_line']};
+            background-color: #F5F7FA;
             width: 12px;
             border-radius: 6px;
         }}
         QScrollBar::handle:vertical {{
-            background-color: {DarkTheme.COLORS['comment']};
+            background-color: #616DB3;
             border-radius: 6px;
             min-height: 20px;
         }}
         QScrollBar::handle:vertical:hover {{
-            background-color: {DarkTheme.COLORS['green']};
+            background-color: #616DB3;
         }}
         """
     
@@ -205,7 +238,7 @@ class DarkTheme:
         return f"""
         QScrollArea {{
             border: none;
-            background-color: {DarkTheme.COLORS['background']};
+            background-color: #FFFFFF;
         }}
         """
     
@@ -214,7 +247,9 @@ class DarkTheme:
         """Estilos para QFrame"""
         return f"""
         QFrame {{
-            background-color: transparent;
+            background-color: #FFFFFF;
+            color: #3D3D3D;
+            border: none;
         }}
         """
     
@@ -222,11 +257,11 @@ class DarkTheme:
     def get_title_label_style():
         """Estilo especial para el título principal"""
         return f"""
-            color: {DarkTheme.COLORS['foreground']}; 
-            background-color: {DarkTheme.COLORS['comment']};
+            color: #3D3D3D; 
+            background-color: #F5F7FA;
             padding: 15px;
             border-radius: 8px;
-            border: 2px solid {DarkTheme.COLORS['purple']};
+            border: 2px solid #616DB3;
             margin: 10px;
         """
 

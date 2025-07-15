@@ -122,9 +122,9 @@ class QAGenerator(QMainWindow):
         dev_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         dev_message.setStyleSheet("""
             QLabel {
-                color: #ff6b6b;
-                background-color: #2c2c2c;
-                border: 2px dashed #ff6b6b;
+                color: #FACC53;
+                background-color: #F5F7FA;
+                border: 2px dashed #FACC53;
                 border-radius: 10px;
                 padding: 20px;
                 margin: 20px;
@@ -146,8 +146,9 @@ class QAGenerator(QMainWindow):
         description.setAlignment(Qt.AlignmentFlag.AlignCenter)
         description.setStyleSheet("""
             QLabel {
-                color: #b8b8b8;
-                background-color: #3c3c3c;
+                color: #3D3D3D;
+                background-color: #F5F7FA;
+                border: 2px solid #A4B3DC;
                 border-radius: 8px;
                 padding: 20px;
                 line-height: 1.6;
