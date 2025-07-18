@@ -11,7 +11,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QAction
 from jira_service import JiraService
 from jira_status_dialog import JiraStatusDialog
-from styles import DarkTheme
+from styles import ThemeManager
 
 class JiraWorker(QThread):
     """Worker thread para operaciones de Jira"""
@@ -53,7 +53,70 @@ class JiraWidget(QWidget):
         super().__init__()
         self.jira_service = JiraService()
         self.worker = None
+        
+        # Registrar para cambios de tema
+        ThemeManager.register_theme_changed_callback(self.on_theme_changed)
+        
         self.setup_ui()
+        
+    def on_theme_changed(self, theme_name):
+        """Callback cuando cambia el tema"""
+        self.apply_theme_to_widgets()
+        
+    def apply_theme_to_widgets(self):
+        """Aplica el tema actual a todos los widgets"""
+        theme_class = ThemeManager.get_theme_class()
+        
+        # Aplicar tema a widgets existentes
+        widgets_to_update = [
+            # Frame principales
+            (getattr(self, 'login_frame', None), 'frame'),
+            (getattr(self, 'issues_frame', None), 'frame'),
+            (getattr(self, 'tabs', None), 'frame'),
+            
+            # Inputs y campos
+            (getattr(self, 'server_input', None), 'lineedit'),
+            (getattr(self, 'username_input', None), 'lineedit'),
+            (getattr(self, 'token_input', None), 'lineedit'),
+            (getattr(self, 'search_input', None), 'lineedit'),
+            
+            # Botones
+            (getattr(self, 'login_btn', None), 'button'),
+            (getattr(self, 'refresh_btn', None), 'button'),
+            (getattr(self, 'search_btn', None), 'button'),
+            
+            # Listas
+            (getattr(self, 'issues_list', None), 'listwidget'),
+            (getattr(self, 'projects_list', None), 'listwidget'),
+            
+            # Áreas de texto
+            (getattr(self, 'issue_details', None), 'textedit'),
+            
+            # Labels
+            (getattr(self, 'connection_status', None), 'label'),
+        ]
+        
+        for widget, widget_type in widgets_to_update:
+            if widget:
+                style_method = getattr(theme_class, f'get_{widget_type}_style', None)
+                if style_method:
+                    widget.setStyleSheet(style_method())
+        
+        # Aplicar colores específicos al connection_status
+        if hasattr(self, 'connection_status'):
+            if ThemeManager.get_current_theme() == 'dark':
+                if "No conectado" in self.connection_status.text():
+                    self.connection_status.setStyleSheet("color: #ff5555; padding: 10px; background-color: transparent;")
+                else:
+                    self.connection_status.setStyleSheet("color: #50fa7b; padding: 10px; background-color: transparent;")
+            else:
+                if "No conectado" in self.connection_status.text():
+                    self.connection_status.setStyleSheet("color: #ff6b6b; padding: 10px; background-color: transparent;")
+                else:
+                    self.connection_status.setStyleSheet("color: #28A745; padding: 10px; background-color: transparent;")
+        
+        # Forzar actualización visual
+        self.update()
         
     def setup_ui(self):
         """Configura la interfaz del widget"""
@@ -80,7 +143,7 @@ class JiraWidget(QWidget):
         """Crea el frame de login"""
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box)
-        frame.setStyleSheet(DarkTheme.get_frame_style())
+        frame.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         layout = QVBoxLayout(frame)
         layout.setSpacing(15)
@@ -125,7 +188,7 @@ Ejemplo de URL del servidor:
         
         self.server_input = QLineEdit()
         self.server_input.setPlaceholderText("https://tuempresa.atlassian.net")
-        self.server_input.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.server_input.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         layout.addWidget(self.server_input)
         
         # Campo de usuario
@@ -135,7 +198,7 @@ Ejemplo de URL del servidor:
         
         self.user_input = QLineEdit()
         self.user_input.setPlaceholderText("tu.email@empresa.com")
-        self.user_input.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.user_input.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         layout.addWidget(self.user_input)
         
         # Campo de token
@@ -146,7 +209,7 @@ Ejemplo de URL del servidor:
         self.token_input = QLineEdit()
         self.token_input.setPlaceholderText("API Token de Jira")
         self.token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.token_input.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.token_input.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         layout.addWidget(self.token_input)
         
         # Link para generar token
@@ -160,12 +223,12 @@ Ejemplo de URL del servidor:
         
         self.login_btn = QPushButton("🔑 Conectar")
         self.login_btn.clicked.connect(self.connect_to_jira)
-        self.login_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.login_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         buttons_layout.addWidget(self.login_btn)
         
         cancel_btn = QPushButton("❌ Limpiar")
         cancel_btn.clicked.connect(self.clear_fields)
-        cancel_btn.setStyleSheet(DarkTheme.get_button_style())
+        cancel_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         buttons_layout.addWidget(cancel_btn)
         
         layout.addLayout(buttons_layout)
@@ -176,7 +239,7 @@ Ejemplo de URL del servidor:
         """Crea el frame de issues con pestañas"""
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box)
-        frame.setStyleSheet(DarkTheme.get_frame_style())
+        frame.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         layout = QVBoxLayout(frame)
         layout.setSpacing(15)
@@ -191,7 +254,7 @@ Ejemplo de URL del servidor:
         
         # Sistema de pestañas
         self.tabs = QTabWidget()
-        self.tabs.setStyleSheet(DarkTheme.get_frame_style())
+        self.tabs.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         # Pestaña de mis issues
         self.my_issues_tab = self.create_my_issues_tab()
@@ -210,7 +273,7 @@ Ejemplo de URL del servidor:
         # Botón para desconectar
         disconnect_btn = QPushButton("🚪 Desconectar")
         disconnect_btn.clicked.connect(self.disconnect)
-        disconnect_btn.setStyleSheet(DarkTheme.get_button_style())
+        disconnect_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         layout.addWidget(disconnect_btn)
         
         return frame
@@ -224,12 +287,43 @@ Ejemplo de URL del servidor:
         # Botón para cargar mis issues
         refresh_btn = QPushButton("🔄 Cargar Mis Tareas Asignadas")
         refresh_btn.clicked.connect(self.load_my_issues)
-        refresh_btn.setStyleSheet(DarkTheme.get_button_style())
+        refresh_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         layout.addWidget(refresh_btn)
+        
+        # Filtro por estado
+        filter_layout = QHBoxLayout()
+        
+        filter_label = QLabel("🏷️ Filtrar por estado:")
+        filter_label.setStyleSheet("color: #3D3D3D; font-weight: bold;")
+        filter_layout.addWidget(filter_label)
+        
+        self.status_filter = QComboBox()
+        self.status_filter.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
+        self.status_filter.addItem("🔎 Todos los estados")
+        self.status_filter.addItem("📋 To Do")
+        self.status_filter.addItem("⚡ In Progress")
+        self.status_filter.addItem("👀 In Review")
+        self.status_filter.addItem("🧪 Testing")
+        self.status_filter.addItem("✅ Done")
+        self.status_filter.addItem("❌ Cancelled")
+        self.status_filter.addItem("🔄 Reopened")
+        self.status_filter.addItem("📝 Ready for Review")
+        self.status_filter.addItem("🚀 Ready for Deploy")
+        self.status_filter.currentTextChanged.connect(self.filter_issues_by_status)
+        filter_layout.addWidget(self.status_filter)
+        
+        # Botón para limpiar filtro
+        clear_filter_btn = QPushButton("🗑️ Limpiar")
+        clear_filter_btn.clicked.connect(self.clear_status_filter)
+        clear_filter_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
+        filter_layout.addWidget(clear_filter_btn)
+        
+        filter_layout.addStretch()  # Empujar hacia la izquierda
+        layout.addLayout(filter_layout)
         
         # Lista de mis issues
         self.my_issues_list = QListWidget()
-        self.my_issues_list.setStyleSheet(DarkTheme.get_listwidget_style())
+        self.my_issues_list.setStyleSheet(ThemeManager.get_theme_class().get_listwidget_style())
         self.my_issues_list.itemClicked.connect(self.on_issue_selected)
         self.my_issues_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.my_issues_list.customContextMenuRequested.connect(self.show_issue_context_menu)
@@ -239,7 +333,7 @@ Ejemplo de URL del servidor:
         self.my_issue_details = QTextEdit()
         self.my_issue_details.setMaximumHeight(150)
         self.my_issue_details.setReadOnly(True)
-        self.my_issue_details.setStyleSheet(DarkTheme.get_textedit_style())
+        self.my_issue_details.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         self.my_issue_details.setPlaceholderText("Selecciona una tarea para ver sus detalles...")
         layout.addWidget(self.my_issue_details)
         
@@ -254,7 +348,7 @@ Ejemplo de URL del servidor:
         # Botón para cargar proyectos
         refresh_projects_btn = QPushButton("🔄 Cargar Proyectos")
         refresh_projects_btn.clicked.connect(self.load_projects)
-        refresh_projects_btn.setStyleSheet(DarkTheme.get_button_style())
+        refresh_projects_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         layout.addWidget(refresh_projects_btn)
         
         # Selector de proyecto
@@ -263,13 +357,13 @@ Ejemplo de URL del servidor:
         layout.addWidget(project_label)
         
         self.project_combo = QComboBox()
-        self.project_combo.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.project_combo.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         self.project_combo.currentTextChanged.connect(self.on_project_selected)
         layout.addWidget(self.project_combo)
         
         # Lista de issues del proyecto
         self.project_issues_list = QListWidget()
-        self.project_issues_list.setStyleSheet(DarkTheme.get_listwidget_style())
+        self.project_issues_list.setStyleSheet(ThemeManager.get_theme_class().get_listwidget_style())
         self.project_issues_list.itemClicked.connect(self.on_project_issue_selected)
         self.project_issues_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.project_issues_list.customContextMenuRequested.connect(self.show_project_issue_context_menu)
@@ -279,7 +373,7 @@ Ejemplo de URL del servidor:
         self.project_issue_details = QTextEdit()
         self.project_issue_details.setMaximumHeight(150)
         self.project_issue_details.setReadOnly(True)
-        self.project_issue_details.setStyleSheet(DarkTheme.get_textedit_style())
+        self.project_issue_details.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         self.project_issue_details.setPlaceholderText("Selecciona un proyecto y una tarea...")
         layout.addWidget(self.project_issue_details)
         
@@ -298,18 +392,18 @@ Ejemplo de URL del servidor:
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText('Ejemplo: project = "PROJ" AND status = "In Progress"')
-        self.search_input.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.search_input.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         layout.addWidget(self.search_input)
         
         # Botón de búsqueda
         search_btn = QPushButton("🔍 Buscar")
         search_btn.clicked.connect(self.search_issues)
-        search_btn.setStyleSheet(DarkTheme.get_button_style())
+        search_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         layout.addWidget(search_btn)
         
         # Lista de resultados de búsqueda
         self.search_results_list = QListWidget()
-        self.search_results_list.setStyleSheet(DarkTheme.get_listwidget_style())
+        self.search_results_list.setStyleSheet(ThemeManager.get_theme_class().get_listwidget_style())
         self.search_results_list.itemClicked.connect(self.on_search_result_selected)
         layout.addWidget(self.search_results_list)
         
@@ -317,7 +411,7 @@ Ejemplo de URL del servidor:
         self.search_result_details = QTextEdit()
         self.search_result_details.setMaximumHeight(150)
         self.search_result_details.setReadOnly(True)
-        self.search_result_details.setStyleSheet(DarkTheme.get_textedit_style())
+        self.search_result_details.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         self.search_result_details.setPlaceholderText("Realiza una búsqueda para ver resultados...")
         layout.addWidget(self.search_result_details)
         
@@ -392,24 +486,30 @@ Ejemplo de URL del servidor:
         
         if not issues:
             self.my_issues_list.addItem("📭 No tienes tareas asignadas")
+            self.all_issues = []
             return
+        
+        # Guardar todos los issues para el filtrado
+        self.all_issues = issues
+        
+        # Actualizar opciones de filtro con estados únicos encontrados
+        if hasattr(self, 'status_filter'):
+            current_text = self.status_filter.currentText()
+            self.status_filter.clear()
+            self.status_filter.addItem("Todos los estados")
             
-        for issue in issues:
-            item = QListWidgetItem()
+            # Obtener estados únicos
+            unique_statuses = set(issue.get('status', '') for issue in issues if issue.get('status'))
+            for status in sorted(unique_statuses):
+                self.status_filter.addItem(status)
             
-            # Información del issue
-            key = issue.get('key', 'N/A')
-            summary = issue.get('summary', 'Sin título')
-            status = issue.get('status', 'N/A')
-            priority = issue.get('priority', 'N/A')
-            project = issue.get('project', 'N/A')
-            
-            # Texto del item
-            item_text = f"🔧 {key} - {summary}\n📊 {status} | ⚡ {priority} | 📁 {project}"
-            item.setText(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, issue)
-            
-            self.my_issues_list.addItem(item)
+            # Restaurar selección anterior si existe
+            index = self.status_filter.findText(current_text)
+            if index >= 0:
+                self.status_filter.setCurrentIndex(index)
+        
+        # Aplicar filtro actual
+        self.filter_issues_by_status()
     
     def on_projects_loaded(self, projects):
         """Maneja la carga exitosa de proyectos"""
@@ -610,7 +710,7 @@ Ejemplo de URL del servidor:
             return
         
         menu = QMenu(self)
-        menu.setStyleSheet(DarkTheme.get_frame_style())
+        menu.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         # Acción para cambiar estado
         change_status_action = QAction("🔄 Cambiar Estado", self)
@@ -646,7 +746,7 @@ Ejemplo de URL del servidor:
             return
         
         menu = QMenu(self)
-        menu.setStyleSheet(DarkTheme.get_frame_style())
+        menu.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         # Acción para cambiar estado
         change_status_action = QAction("🔄 Cambiar Estado", self)
@@ -755,3 +855,43 @@ Ejemplo de URL del servidor:
             'Reopened': '🔄'
         }
         return status_icons.get(status, '📋')
+
+    def filter_issues_by_status(self):
+        """Filtra los issues por el estado seleccionado"""
+        if not hasattr(self, 'all_issues'):
+            return
+            
+        selected_status = self.status_filter.currentText()
+        
+        # Limpiar lista actual
+        self.my_issues_list.clear()
+        
+        # Si es "Todos los estados", mostrar todos
+        if selected_status == "Todos los estados":
+            issues_to_show = self.all_issues
+        else:
+            # Filtrar por estado
+            issues_to_show = [issue for issue in self.all_issues 
+                            if issue.get('status', '') == selected_status]
+        
+        # Agregar issues filtrados a la lista
+        for issue in issues_to_show:
+            status_icon = self.get_status_icon(issue.get('status', ''))
+            priority_icon = self.get_priority_icon(issue.get('priority', ''))
+            
+            item_text = f"{status_icon} {priority_icon} {issue['key']}: {issue['summary']}"
+            item = QListWidgetItem(item_text)
+            item.setData(256, issue)  # Guardamos los datos del issue
+            
+            # Aplicar estilos según el tema actual
+            if hasattr(self, 'theme_manager') and self.theme_manager:
+                current_theme = self.theme_manager.get_current_theme()
+                item.setBackground(QColor(current_theme.list_item_background))
+                item.setForeground(QColor(current_theme.text_color))
+            
+            self.my_issues_list.addItem(item)
+    
+    def clear_status_filter(self):
+        """Limpia el filtro de estado y muestra todos los issues"""
+        self.status_filter.setCurrentText("Todos los estados")
+        self.filter_issues_by_status()

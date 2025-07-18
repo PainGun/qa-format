@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QPainterPath
 from github_service import GitHubService, GitHubAvatarWorker
 from github_branch_service import GitHubBranchesWorker, GitHubCreateBranchWorker
-from styles import DarkTheme
+from styles import ThemeManager
 
 class GitHubWorker(QThread):
     """Worker thread para operaciones de GitHub"""
@@ -94,12 +94,12 @@ class BranchManagerDialog(QDialog):
         
         self.refresh_btn = QPushButton("🔄 Actualizar")
         self.refresh_btn.clicked.connect(self.load_branches)
-        self.refresh_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.refresh_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         actions_layout.addWidget(self.refresh_btn)
         
         self.create_branch_btn = QPushButton("➕ Nueva Rama")
         self.create_branch_btn.clicked.connect(self.show_create_branch_dialog)
-        self.create_branch_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.create_branch_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         actions_layout.addWidget(self.create_branch_btn)
         
         actions_layout.addStretch()
@@ -107,7 +107,7 @@ class BranchManagerDialog(QDialog):
         
         # Lista de ramas
         self.branches_list = QListWidget()
-        self.branches_list.setStyleSheet(DarkTheme.get_listwidget_style())
+        self.branches_list.setStyleSheet(ThemeManager.get_theme_class().get_listwidget_style())
         self.branches_list.itemClicked.connect(self.on_branch_selected)
         layout.addWidget(self.branches_list)
         
@@ -119,7 +119,7 @@ class BranchManagerDialog(QDialog):
         self.branch_details = QTextEdit()
         self.branch_details.setMaximumHeight(150)
         self.branch_details.setReadOnly(True)
-        self.branch_details.setStyleSheet(DarkTheme.get_textedit_style())
+        self.branch_details.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         self.branch_details.setPlaceholderText("Selecciona una rama para ver sus detalles...")
         layout.addWidget(self.branch_details)
         
@@ -284,7 +284,7 @@ class CreateBranchDialog(QDialog):
         
         self.branch_name_input = QLineEdit()
         self.branch_name_input.setPlaceholderText("feature/nueva-funcionalidad")
-        self.branch_name_input.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.branch_name_input.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         self.branch_name_input.textChanged.connect(self.validate_branch_name)
         layout.addWidget(self.branch_name_input)
         
@@ -298,7 +298,7 @@ class CreateBranchDialog(QDialog):
         layout.addWidget(source_label)
         
         self.source_combo = QComboBox()
-        self.source_combo.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.source_combo.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         
         # Agregar ramas disponibles
         if self.current_branches:
@@ -429,7 +429,80 @@ class GitHubWidget(QWidget):
         self.avatar_worker = None
         self.selected_user_repo = None  # Almacenar repo seleccionado del usuario
         self.selected_org_repo = None   # Almacenar repo seleccionado de org
+        
+        # Registrar para cambios de tema
+        ThemeManager.register_theme_changed_callback(self.on_theme_changed)
+        
         self.setup_ui()
+        
+    def on_theme_changed(self, theme_name):
+        """Callback cuando cambia el tema"""
+        self.apply_theme_to_widgets()
+        
+    def apply_theme_to_widgets(self):
+        """Aplica el tema actual a todos los widgets"""
+        theme_class = ThemeManager.get_theme_class()
+        
+        # Aplicar tema a widgets existentes
+        widgets_to_update = [
+            # Frame principales
+            (getattr(self, 'connection_frame', None), 'frame'),
+            (getattr(self, 'login_frame', None), 'frame'),
+            (getattr(self, 'repos_frame', None), 'frame'),
+            (getattr(self, 'tabs', None), 'frame'),
+            
+            # Inputs y campos
+            (getattr(self, 'token_input', None), 'lineedit'),
+            (getattr(self, 'org_combo', None), 'lineedit'),
+            
+            # Botones
+            (getattr(self, 'login_btn', None), 'button'),
+            (getattr(self, 'user_branches_btn', None), 'button'),
+            (getattr(self, 'org_branches_btn', None), 'button'),
+            
+            # Listas
+            (getattr(self, 'user_repos_list', None), 'listwidget'),
+            (getattr(self, 'org_repos_list', None), 'listwidget'),
+            
+            # Áreas de texto
+            (getattr(self, 'user_repo_details', None), 'textedit'),
+            (getattr(self, 'org_repo_details', None), 'textedit'),
+            
+            # Labels
+            (getattr(self, 'connection_status', None), 'label'),
+            (getattr(self, 'user_info_label', None), 'label'),
+            (getattr(self, 'user_bio_label', None), 'label'),
+        ]
+        
+        for widget, widget_type in widgets_to_update:
+            if widget:
+                style_method = getattr(theme_class, f'get_{widget_type}_style', None)
+                if style_method:
+                    widget.setStyleSheet(style_method())
+        
+        # Aplicar tema específico a connection_frame
+        if hasattr(self, 'connection_frame'):
+            if ThemeManager.get_current_theme() == 'dark':
+                self.connection_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #44475a;
+                        border: 2px solid #6272a4;
+                        border-radius: 12px;
+                        padding: 8px;
+                    }
+                """)
+            else:
+                self.connection_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #F5F7FA;
+                        border: 2px solid #A4B3DC;
+                        border-radius: 12px;
+                        padding: 8px;
+                    }
+                """)
+        
+        # Forzar actualización visual
+        self.update()
         
     def setup_ui(self):
         """Configura la interfaz del widget"""
@@ -519,7 +592,7 @@ class GitHubWidget(QWidget):
         """Crea el frame de login"""
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box)
-        frame.setStyleSheet(DarkTheme.get_frame_style())
+        frame.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         layout = QVBoxLayout(frame)
         layout.setSpacing(15)
@@ -564,7 +637,7 @@ class GitHubWidget(QWidget):
         self.token_input = QLineEdit()
         self.token_input.setPlaceholderText("ghp_...")
         self.token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.token_input.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.token_input.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         layout.addWidget(self.token_input)
         
         # Link para generar token
@@ -578,12 +651,12 @@ class GitHubWidget(QWidget):
         
         self.login_btn = QPushButton("🔑 Iniciar Sesión")
         self.login_btn.clicked.connect(self.login_to_github)
-        self.login_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.login_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         buttons_layout.addWidget(self.login_btn)
         
         cancel_btn = QPushButton("❌ Cancelar")
         cancel_btn.clicked.connect(self.clear_token)
-        cancel_btn.setStyleSheet(DarkTheme.get_button_style())
+        cancel_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         buttons_layout.addWidget(cancel_btn)
         
         layout.addLayout(buttons_layout)
@@ -594,7 +667,7 @@ class GitHubWidget(QWidget):
         """Crea el frame de repositorios con pestañas para usuario y organizaciones"""
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.Box)
-        frame.setStyleSheet(DarkTheme.get_frame_style())
+        frame.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         layout = QVBoxLayout(frame)
         layout.setSpacing(15)
@@ -609,7 +682,7 @@ class GitHubWidget(QWidget):
         
         # Sistema de pestañas
         self.tabs = QTabWidget()
-        self.tabs.setStyleSheet(DarkTheme.get_frame_style())
+        self.tabs.setStyleSheet(ThemeManager.get_theme_class().get_frame_style())
         
         # Pestaña de repositorios personales
         self.user_repos_tab = self.create_user_repos_tab()
@@ -624,7 +697,7 @@ class GitHubWidget(QWidget):
         # Botón para desconectar
         disconnect_btn = QPushButton("🚪 Cerrar Sesión")
         disconnect_btn.clicked.connect(self.logout)
-        disconnect_btn.setStyleSheet(DarkTheme.get_button_style())
+        disconnect_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         layout.addWidget(disconnect_btn)
         
         return frame
@@ -637,7 +710,7 @@ class GitHubWidget(QWidget):
         
         # Lista de repositorios del usuario
         self.user_repos_list = QListWidget()
-        self.user_repos_list.setStyleSheet(DarkTheme.get_listwidget_style())
+        self.user_repos_list.setStyleSheet(ThemeManager.get_theme_class().get_listwidget_style())
         self.user_repos_list.itemClicked.connect(self.on_repo_selected)
         layout.addWidget(self.user_repos_list)
         
@@ -647,14 +720,14 @@ class GitHubWidget(QWidget):
         self.user_repo_details = QTextEdit()
         self.user_repo_details.setMaximumHeight(120)
         self.user_repo_details.setReadOnly(True)
-        self.user_repo_details.setStyleSheet(DarkTheme.get_textedit_style())
+        self.user_repo_details.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         self.user_repo_details.setPlaceholderText("Selecciona un repositorio para ver sus detalles...")
         details_layout.addWidget(self.user_repo_details)
         
         # Botón para ver ramas
         self.user_branches_btn = QPushButton("🌿 Ver Ramas")
         self.user_branches_btn.clicked.connect(self.show_user_repo_branches)
-        self.user_branches_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.user_branches_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         self.user_branches_btn.setEnabled(False)
         details_layout.addWidget(self.user_branches_btn)
         
@@ -677,7 +750,7 @@ class GitHubWidget(QWidget):
         org_layout = QHBoxLayout()
         
         self.org_combo = QComboBox()
-        self.org_combo.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.org_combo.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         self.org_combo.currentTextChanged.connect(self.on_org_selected)
         org_layout.addWidget(self.org_combo)
         
@@ -686,14 +759,14 @@ class GitHubWidget(QWidget):
         reload_orgs_btn.setMaximumWidth(40)
         reload_orgs_btn.setToolTip("Recargar organizaciones")
         reload_orgs_btn.clicked.connect(self.load_organizations)
-        reload_orgs_btn.setStyleSheet(DarkTheme.get_button_style())
+        reload_orgs_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         org_layout.addWidget(reload_orgs_btn)
         
         layout.addLayout(org_layout)
         
         # Lista de repositorios de la organización
         self.org_repos_list = QListWidget()
-        self.org_repos_list.setStyleSheet(DarkTheme.get_listwidget_style())
+        self.org_repos_list.setStyleSheet(ThemeManager.get_theme_class().get_listwidget_style())
         self.org_repos_list.itemClicked.connect(self.on_org_repo_selected)
         layout.addWidget(self.org_repos_list)
         
@@ -703,14 +776,14 @@ class GitHubWidget(QWidget):
         self.org_repo_details = QTextEdit()
         self.org_repo_details.setMaximumHeight(120)
         self.org_repo_details.setReadOnly(True)
-        self.org_repo_details.setStyleSheet(DarkTheme.get_textedit_style())
+        self.org_repo_details.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         self.org_repo_details.setPlaceholderText("Selecciona una organización y un repositorio...")
         org_details_layout.addWidget(self.org_repo_details)
         
         # Botón para ver ramas de org
         self.org_branches_btn = QPushButton("🌿 Ver Ramas")
         self.org_branches_btn.clicked.connect(self.show_org_repo_branches)
-        self.org_branches_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.org_branches_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         self.org_branches_btn.setEnabled(False)
         org_details_layout.addWidget(self.org_branches_btn)
         

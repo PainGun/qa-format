@@ -7,7 +7,11 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QClipboard
 from controllers import TareaQAController
-from styles import DarkTheme
+from styles import ThemeManager, LightTheme, DarkTheme
+from theme_toggle import ThemeToggleWidget, ThemeToggleButton
+from config import app_config
+from splash_screen import SplashScreen, MinimalSplashScreen
+from simple_splash import SimpleSplashScreen
 try:
     from github_widget import GitHubWidget
     GITHUB_AVAILABLE = True
@@ -35,8 +39,11 @@ class QAGenerator(QMainWindow):
         # Lista de widgets para manejo de cierre
         self.widgets_with_threads = []
         
-        # Aplicar tema oscuro
-        self.setStyleSheet(DarkTheme.get_main_stylesheet())
+        # Registrar callback para cambios de tema
+        ThemeManager.register_theme_changed_callback(self.apply_theme)
+        
+        # Aplicar tema inicial
+        self.apply_theme(ThemeManager.get_current_theme())
         
         # Crear widget central y layout principal
         central_widget = QWidget()
@@ -44,6 +51,10 @@ class QAGenerator(QMainWindow):
         
         # Layout principal
         main_layout = QVBoxLayout(central_widget)
+        
+        # Crear barra de herramientas con toggle de tema
+        self.create_toolbar()
+        main_layout.addWidget(self.toolbar)
         
         # Crear sistema de pestañas
         self.tab_widget = QTabWidget()
@@ -66,6 +77,58 @@ class QAGenerator(QMainWindow):
         
         main_layout.addWidget(self.tab_widget)
         
+    def create_toolbar(self):
+        """Crea la barra de herramientas con toggle de tema"""
+        self.toolbar = QFrame()
+        self.toolbar.setFrameStyle(QFrame.Shape.StyledPanel)
+        self.toolbar.setMaximumHeight(60)
+        
+        toolbar_layout = QHBoxLayout(self.toolbar)
+        toolbar_layout.setContentsMargins(15, 10, 15, 10)
+        
+        # Título de la aplicación
+        app_title = QLabel("📋 Generador Paso a QA")
+        app_title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        toolbar_layout.addWidget(app_title)
+        
+        # Espacio flexible
+        toolbar_layout.addStretch()
+        
+        # Widget de toggle de tema
+        self.theme_toggle = ThemeToggleWidget()
+        self.theme_toggle.theme_changed.connect(self.on_theme_changed)
+        toolbar_layout.addWidget(self.theme_toggle)
+        
+        # Botón de toggle alternativo (más simple)
+        # self.theme_button = ThemeToggleButton()
+        # self.theme_button.theme_changed.connect(self.on_theme_changed)
+        # toolbar_layout.addWidget(self.theme_button)
+    
+    def apply_theme(self, theme_name):
+        """Aplica el tema seleccionado a toda la aplicación"""
+        theme_class = ThemeManager.get_theme_class()
+        stylesheet = theme_class.get_main_stylesheet()
+        
+        # Aplicar stylesheet a la ventana principal
+        self.setStyleSheet(stylesheet)
+        
+        # Actualizar título principal si existe
+        if hasattr(self, 'title_label'):
+            self.title_label.setStyleSheet(theme_class.get_title_label_style())
+        
+        # Forzar actualización visual
+        self.update()
+    
+    def on_theme_changed(self, theme_name):
+        """Maneja el cambio de tema"""
+        print(f"🎨 Tema cambiado a: {theme_name}")
+        
+        # Guardar tema en configuración
+        app_config.set_theme(theme_name)
+        
+        # El tema ya se aplicó automáticamente a través del callback
+        # Aquí puedes agregar lógica adicional si es necesario
+        
     def create_qa_tab(self):
         """Crea la pestaña del generador QA"""
         qa_tab = QWidget()
@@ -86,11 +149,13 @@ class QAGenerator(QMainWindow):
         scroll_layout.setContentsMargins(20, 20, 20, 20)
         
         # Título principal
-        title_label = QLabel("📋 FORMULARIO DE QA")
-        title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet("color: #3D3D3D; background-color: #F5F7FA; padding: 15px; border-radius: 8px; border: 2px solid #616DB3; margin: 10px;")
-        scroll_layout.addWidget(title_label)
+        self.title_label = QLabel("📋 FORMULARIO DE QA")
+        self.title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # El estilo se aplicará dinámicamente según el tema
+        theme_class = ThemeManager.get_theme_class()
+        self.title_label.setStyleSheet(theme_class.get_title_label_style())
+        scroll_layout.addWidget(self.title_label)
         
         # Crear secciones
         self.create_basic_info_section(scroll_layout)
@@ -614,8 +679,24 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')  # Estilo moderno
     
-    window = QAGenerator()
-    window.show()
+    # Crear y mostrar pantalla de splash simplificada
+    splash = SimpleSplashScreen()
+    
+    # Variable para la ventana principal
+    window = None
+    
+    def show_main_window():
+        """Muestra la ventana principal después del splash"""
+        nonlocal window
+        window = QAGenerator()
+        window.show()
+        splash.close()
+    
+    # Conectar señal del splash para mostrar ventana principal
+    splash.splash_finished.connect(show_main_window)
+    
+    # Iniciar splash (2.5 segundos por defecto)
+    splash.start_splash(2500)
     
     sys.exit(app.exec())
 

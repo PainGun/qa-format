@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QProgressBar)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
-from styles import DarkTheme
+from styles import ThemeManager
 
 class TransitionWorker(QThread):
     """Worker para realizar transiciones en background"""
@@ -56,7 +56,7 @@ class JiraStatusDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # Aplicar estilos
-        self.setStyleSheet(DarkTheme.get_main_stylesheet())
+        self.setStyleSheet(ThemeManager.get_theme_class().get_main_stylesheet())
         
         # Información del issue
         info_label = QLabel(f"📋 {self.issue_data['key']}: {self.issue_data['summary']}")
@@ -77,7 +77,7 @@ class JiraStatusDialog(QDialog):
         layout.addWidget(status_label)
         
         self.status_combo = QComboBox()
-        self.status_combo.setStyleSheet(DarkTheme.get_lineedit_style())
+        self.status_combo.setStyleSheet(ThemeManager.get_theme_class().get_lineedit_style())
         self.status_combo.addItem("🔄 Cargando estados disponibles...")
         layout.addWidget(self.status_combo)
         
@@ -89,7 +89,7 @@ class JiraStatusDialog(QDialog):
         self.comment_text = QTextEdit()
         self.comment_text.setMaximumHeight(100)
         self.comment_text.setPlaceholderText("Agregar un comentario sobre el cambio de estado...")
-        self.comment_text.setStyleSheet(DarkTheme.get_textedit_style())
+        self.comment_text.setStyleSheet(ThemeManager.get_theme_class().get_textedit_style())
         layout.addWidget(self.comment_text)
         
         # Barra de progreso
@@ -115,13 +115,13 @@ class JiraStatusDialog(QDialog):
         
         self.change_btn = QPushButton("🔄 Cambiar Estado")
         self.change_btn.clicked.connect(self.change_status)
-        self.change_btn.setStyleSheet(DarkTheme.get_button_style())
+        self.change_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         self.change_btn.setEnabled(False)
         buttons_layout.addWidget(self.change_btn)
         
         cancel_btn = QPushButton("❌ Cancelar")
         cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet(DarkTheme.get_button_style())
+        cancel_btn.setStyleSheet(ThemeManager.get_theme_class().get_button_style())
         buttons_layout.addWidget(cancel_btn)
         
         layout.addLayout(buttons_layout)
