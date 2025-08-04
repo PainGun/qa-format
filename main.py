@@ -47,6 +47,13 @@ import datetime
 from generador_qa.src.domain.entities.tarea import TareaQA as DomainTareaQA, AmbientePR as DomainAmbientePR, ComentarioQA as DomainComentarioQA
 from generador_qa.src.domain.value_objects.tipos_qa import TipoQA as DomainTipoQA
 
+# Import para el widget RFlex (opcional, se maneja con try/except)
+try:
+    from generador_qa.src.infrastructure.ui.views.widgets.rflex_chatbot_widget import RFlexChatbotWidget
+    RFLEX_AVAILABLE = True
+except ImportError:
+    RFLEX_AVAILABLE = False
+
 # ============================================================================
 # DOMAIN LAYER - ENTITIES AND VALUE OBJECTS
 # ============================================================================
@@ -647,15 +654,12 @@ class QAGenerator(QMainWindow):
         
         # Layout principal
         main_layout = QVBoxLayout(central_widget)
-        self.tabs = QTabWidget()
-        main_layout.addWidget(self.tabs)
-        # Crear área de scroll para la app principal
         
         # Crear barra de herramientas con toggle de tema
         self.create_toolbar()
         main_layout.addWidget(self.toolbar)
         
-        # Crear sistema de pestañas
+        # Crear sistema de pestañas unificado
         self.tab_widget = QTabWidget()
         
         # Pestaña del generador QA
@@ -671,7 +675,7 @@ class QAGenerator(QMainWindow):
             self.jira_widget = self.create_jira_tab()
             self.widgets_with_threads.append(self.jira_widget)
         
-        # Pestaña del chatbot RFlex (al final)
+        # Pestaña del chatbot RFlex
         self.create_rflex_chatbot_tab()
         
         main_layout.addWidget(self.tab_widget)
@@ -755,10 +759,10 @@ class QAGenerator(QMainWindow):
         scroll_layout.addWidget(title_label)
         self._create_sections(scroll_layout)
         scroll_area.setWidget(scroll_widget)
-        self.tabs.addTab(scroll_area, '📝 QA')
+        self.tab_widget.addTab(scroll_area, '📝 QA')
         # --- Integrar SlackPanel ---
         self.slack_panel = SlackPanel(get_tarea_fn=self._get_tarea_actual)
-        self.tabs.addTab(self.slack_panel, '🔗 Slack')
+        self.tab_widget.addTab(self.slack_panel, '🔗 Slack')
         self.slack_panel.canales_actualizados.connect(self.sincronizar_destinos_slack)
         self.sincronizar_destinos_slack()  # inicial
 
@@ -808,58 +812,42 @@ class QAGenerator(QMainWindow):
         """Crea la pestaña del chatbot RFlex"""
         chatbot_tab = QWidget()
         chatbot_layout = QVBoxLayout(chatbot_tab)
-        chatbot_layout.setSpacing(30)
-        chatbot_layout.setContentsMargins(50, 50, 50, 50)
+        chatbot_layout.setSpacing(20)
+        chatbot_layout.setContentsMargins(20, 20, 20, 20)
         
         # Título de la pestaña
-        chatbot_title = QLabel("🤖 CHATBOT RFLEX")
-        chatbot_title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
+        chatbot_title = QLabel("🤖 CHATBOT RFLEX - Asistente IA para QA")
+        chatbot_title.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         chatbot_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        chatbot_title.setStyleSheet("color: #3D3D3D; background-color: #F5F7FA; padding: 15px; border-radius: 8px; border: 2px solid #616DB3; margin: 10px;")
+        chatbot_title.setStyleSheet("""
+            QLabel {
+                color: #2C3E50;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 #3498DB, stop:1 #2980B9);
+                padding: 15px;
+                border-radius: 10px;
+                margin: 5px;
+            }
+        """)
         chatbot_layout.addWidget(chatbot_title)
         
-        # Mensaje de desarrollo
-        dev_message = QLabel("🚧 EN DESARROLLO 🚧")
-        dev_message.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        dev_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dev_message.setStyleSheet("""
-            QLabel {
-                color: #FACC53;
-                background-color: #F5F7FA;
-                border: 2px dashed #FACC53;
-                border-radius: 10px;
-                padding: 20px;
-                margin: 20px;
-            }
-        """)
-        chatbot_layout.addWidget(dev_message)
-        
-        # Descripción
-        description = QLabel("""
-        Esta funcionalidad estará disponible próximamente.
-        
-        El chatbot RFlex te permitirá:
-        • 💬 Chatear con IA especializada en QA
-        • 🔍 Analizar código y documentación
-        • 📝 Generar casos de prueba automáticamente
-        • 🚀 Optimizar procesos de testing
-        """)
-        description.setFont(QFont("Arial", 12))
-        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        description.setStyleSheet("""
-            QLabel {
-                color: #3D3D3D;
-                background-color: #F5F7FA;
-                border: 2px solid #A4B3DC;
-                border-radius: 8px;
-                padding: 20px;
-                line-height: 1.6;
-            }
-        """)
-        chatbot_layout.addWidget(description)
-        
-        # Espacio flexible
-        chatbot_layout.addStretch()
+        # Widget del chatbot RFlex
+        if RFLEX_AVAILABLE:
+            rflex_widget = RFlexChatbotWidget()
+            chatbot_layout.addWidget(rflex_widget)
+        else:
+            # Fallback si no se puede importar el widget
+            error_message = QLabel("Widget RFlex no disponible. Verifica la instalación.")
+            error_message.setStyleSheet("""
+                QLabel {
+                    color: #DC3545;
+                    background-color: #F8D7DA;
+                    padding: 20px;
+                    border-radius: 8px;
+                    border: 2px solid #DC3545;
+                }
+            """)
+            chatbot_layout.addWidget(error_message)
         
         # Agregar pestaña al tab widget
         self.tab_widget.addTab(chatbot_tab, "🤖 Chat RFlex")
